@@ -1,38 +1,158 @@
+/* Futuristic / Martian Theme */
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #1a1a1a; /* Dark background */
+  color: #e0e0e0; /* Light grey text */
+}
+
 .App {
   text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+.App-header {
+  background-color: #0d0d0d; /* Very dark, near black for header */
+  padding: 20px;
+  color: #ff4500; /* Martian orange/rust accent */
+  border-bottom: 2px solid #ff4500;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.App-header h1 {
+  margin: 0;
+  font-size: 2.5em;
+  font-weight: 300; /* Lighter font weight for a sleeker look */
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+main {
+  flex-grow: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
 }
 
-.App-link {
-  color: #61dafb;
+/* Form and Results Styling - to be applied/enhanced in OrbitInputForm.tsx and App.tsx */
+form, 
+.simulation-results-container,
+.simulation-error-container {
+  background-color: #2c2c2c; /* Darker cards */
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid #444;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+  margin-top: 20px;
+  width: 100%;
+  max-width: 700px; /* Max width for content sections */
+  text-align: left;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+form h2, 
+.simulation-results-container h2,
+.simulation-error-container h3 {
+  color: #ff4500; /* Accent color for headings */
+  border-bottom: 1px solid #555;
+  padding-bottom: 10px;
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-weight: 400;
+  letter-spacing: 1px;
 }
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  color: #b0b0b0; /* Lighter label text */
+  font-size: 0.95em;
+}
+
+input[type="number"],
+input[type="text"], /* If you add any text inputs */
+select {
+  width: calc(100% - 22px); /* Full width minus padding and border */
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 6px;
+  border: 1px solid #555;
+  background-color: #1a1a1a; /* Input background */
+  color: #e0e0e0; /* Input text color */
+  font-size: 1em;
+}
+
+input[type="number"]:focus,
+select:focus {
+  outline: none;
+  border-color: #ff4500; /* Accent color on focus */
+  box-shadow: 0 0 0 2px rgba(255, 69, 0, 0.3);
+}
+
+button[type="submit"] {
+  background-color: #ff4500; /* Accent color for button */
+  color: #1a1a1a; /* Dark text on button */
+  border: none;
+  padding: 12px 25px;
+  border-radius: 6px;
+  font-size: 1.1em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease, transform 0.1s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+button[type="submit"]:hover {
+  background-color: #ff6a33; /* Lighter shade on hover */
+}
+
+button[type="submit"]:active {
+  transform: translateY(1px);
+}
+
+button[type="submit"]:disabled {
+  background-color: #555;
+  color: #888;
+  cursor: not-allowed;
+}
+
+.simulation-results-container p,
+.simulation-error-container pre {
+  color: #c0c0c0;
+  line-height: 1.6;
+  font-size: 1em;
+}
+
+.simulation-results-container strong {
+  color: #e0e0e0;
+}
+
+.simulation-error-container {
+  border-color: #cc3300; /* More prominent error border */
+}
+
+.simulation-error-container h3 {
+  color: #cc3300;
+}
+
+
+.App-footer {
+  padding: 15px;
+  background-color: #0d0d0d;
+  color: #777;
+  font-size: 0.9em;
+  border-top: 1px solid #333;
+  margin-top: auto; /* Pushes footer to the bottom */
+}
+
+/* For a more futuristic font, you could import one from Google Fonts, e.g., "Orbitron" or "Exo 2" */
+/* @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap'); */
+/* body { font-family: 'Orbitron', sans-serif; } */

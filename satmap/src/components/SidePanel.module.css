@@ -1,0 +1,67 @@
+.sidePanel {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 300px;
+  max-height: calc(100vh - 160px); /* Adjust based on other controls height */
+  overflow-y: auto;
+  background: rgba(30, 30, 30, 0.92); /* Slightly darker, more opaque */
+  color: #ccc; /* Lighter grey for text */
+  padding: 18px;
+  border-radius: 10px;
+  border: 1px solid #555;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+  z-index: 1000;
+  font-size: 0.9em;
+}
+
+.closeButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: transparent;
+  color: #888;
+  border: none;
+  font-size: 1.5em; /* Larger close icon */
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.closeButton:hover {
+  color: #eee;
+}
+
+.panelHeader {
+  margin-top: 0;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #4a4a4a; /* Softer border */
+  padding-bottom: 10px;
+  color: #ff8c00; /* Martian orange accent */
+  font-size: 1.2em;
+}
+
+.handshakeList {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.handshakeItem {
+  margin-bottom: 10px;
+  padding: 10px;
+  background: rgba(50, 50, 50, 0.85);
+  border-radius: 6px;
+  border-left: 3px solid #ff8c00; /* Accent border */
+  font-size: 0.95em;
+}
+
+.handshakeItem strong {
+  color: #ffaf50; /* Lighter orange for emphasis */
+}
+
+.noHandshakes {
+  color: #888;
+  font-style: italic;
+} 

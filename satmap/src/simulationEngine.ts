@@ -1,4 +1,4 @@
-import { TLE, BeaconOrbitParams, SimulationResults, SatellitePosition, Handshake, BlackoutPeriod, CartesianVector } from './types/orbit';
+import { TLE, BeaconOrbitParams, SimulationResults, SatellitePosition, Handshake, BlackoutPeriod, CartesianVector, SimulationConfig } from './types/orbit';
 import {
     initializeSatrecFromTLE,
     createSatrecForNonPolarBeacon,
@@ -10,8 +10,9 @@ import { fetchIridiumTLEs } from './services/tleService';
 import { GeometricCone, createIridiumCone, isPointInCone, createBeaconAntennaCones } from './utils/geometry';
 import * as satellite from 'satellite.js'; // For SatRec type, and other satellite.js specific types/functions if needed
 
-const SIMULATION_DURATION_HOURS = 24;
-const TIME_STEP_MINUTES = 1;
+// Constants for FOV and simulation timing are now part of SimulationConfig
+// const SIMULATION_DURATION_HOURS = 24; // Removed
+// const TIME_STEP_MINUTES = 1; // Removed
 
 interface ActiveLink {
     iridiumSatId: string;
@@ -19,16 +20,16 @@ interface ActiveLink {
 }
 
 export const runSimulation = async (
-    beaconParams: BeaconOrbitParams,
+    config: SimulationConfig, // Changed to accept SimulationConfig
     startTime: Date = new Date() // Default to now if not provided
 ): Promise<SimulationResults> => {
     // 1. Initialize SatRecs
     // ----------------------
     let beaconSatRec: satellite.SatRec | null;
-    if (beaconParams.type === 'SunSynchronous') {
-        beaconSatRec = createSatrecForSunSynchronousBeacon(beaconParams, startTime);
+    if (config.beaconParams.type === 'SunSynchronous') {
+        beaconSatRec = createSatrecForSunSynchronousBeacon(config.beaconParams, startTime);
     } else {
-        beaconSatRec = createSatrecForNonPolarBeacon(beaconParams, startTime);
+        beaconSatRec = createSatrecForNonPolarBeacon(config.beaconParams, startTime);
     }
 
     if (!beaconSatRec) {
@@ -52,14 +53,21 @@ export const runSimulation = async (
 
     // 2. Simulation Loop Variables
     // ----------------------------
+    const iridiumHalfAngleRad = (config.iridiumFovDeg / 2.0) * (Math.PI / 180.0);
+    // const beaconHalfAngleRad = (config.beaconFovDeg / 2.0) * (Math.PI / 180.0); // Currently beacon cone not used for handshake
+
     let totalHandshakes = 0;
+    const handshakeLog: Handshake[] = []; // Initialize handshakeLog
     const blackoutPeriods: BlackoutPeriod[] = [];
     const beaconTrack: SatellitePosition[] = [];
     const iridiumTracks: { [satelliteId: string]: SatellitePosition[] } = {};
+    const activeLinksLog: Array<Set<string>> = []; // Initialize activeLinksLog
     iridiumSatRecs.forEach(isat => iridiumTracks[isat.id] = []);
 
     let currentTime = new Date(startTime.getTime());
-    const endTime = new Date(startTime.getTime() + SIMULATION_DURATION_HOURS * 60 * 60 * 1000);
+    const simulationDurationMs = config.simulationDurationHours * 60 * 60 * 1000;
+    const timeStepMs = config.simulationTimeStepSec * 1000;
+    const endTime = new Date(startTime.getTime() + simulationDurationMs);
 
     let previousConnectedIridiumSatIds: Set<string> = new Set();
     let currentBlackout: { startTime: number } | null = null;
@@ -75,7 +83,7 @@ export const runSimulation = async (
         const beaconPropagation = propagateSatellite(beaconSatRec, currentTime);
         if (!beaconPropagation || !beaconPropagation.positionEci || !beaconPropagation.velocityEci || !beaconPropagation.positionGeodetic) {
             console.warn(`Beacon propagation failed at ${currentTime.toISOString()}`);
-            currentTime = new Date(currentTime.getTime() + TIME_STEP_MINUTES * 60 * 1000);
+            currentTime = new Date(currentTime.getTime() + timeStepMs);
             continue; // Skip this timestep if beacon fails
         }
         const beaconCurrentPosEci = eciToCartesian(beaconPropagation.positionEci as satellite.EciVec<number>); // Already Cartesian via propagate
@@ -126,7 +134,7 @@ export const runSimulation = async (
                 console.log(`  Iridium ${iridiumSat.id.substring(0,12)} ECI: x=${iridiumCurrentPosEci.x.toFixed(0)}, y=${iridiumCurrentPosEci.y.toFixed(0)}, z=${iridiumCurrentPosEci.z.toFixed(0)} (km)`);
             }
 
-            const iridiumCone = createIridiumCone(iridiumCurrentPosEci, iridiumSat.id);
+            const iridiumCone = createIridiumCone(iridiumCurrentPosEci, iridiumHalfAngleRad, iridiumSat.id);
             
             // Communication check: Beacon point within an Iridium cone
             if (isPointInCone(beaconCurrentPosEci, iridiumCone)) {
@@ -135,10 +143,25 @@ export const runSimulation = async (
                 // Handshake: if not previously connected to THIS Iridium sat, it's a new handshake with it.
                 if (!previousConnectedIridiumSatIds.has(iridiumSat.id)) {
                     totalHandshakes++;
+                    handshakeLog.push({ // Log the handshake event
+                        timestamp: currentTime.getTime(),
+                        iridiumSatelliteId: iridiumSat.id,
+                        beaconPosition: {
+                            latitude: satellite.degreesLat(beaconCurrentPosGeo.latitude),
+                            longitude: satellite.degreesLong(beaconCurrentPosGeo.longitude),
+                            altitude: beaconCurrentPosGeo.height
+                        },
+                        iridiumPosition: {
+                            latitude: satellite.degreesLat(iridiumCurrentPosGeo.latitude),
+                            longitude: satellite.degreesLong(iridiumCurrentPosGeo.longitude),
+                            altitude: iridiumCurrentPosGeo.height
+                        }
+                    });
                 }
             }
         }
         previousConnectedIridiumSatIds = new Set(currentConnectedIridiumSatIds); // Update for next step
+        activeLinksLog.push(new Set(currentConnectedIridiumSatIds)); // Log current active links for this time step
 
         // Blackout Logic
         if (!beaconIsInCommunication) {
@@ -157,7 +180,7 @@ export const runSimulation = async (
             }
         }
 
-        currentTime = new Date(currentTime.getTime() + TIME_STEP_MINUTES * 60 * 1000);
+        currentTime = new Date(currentTime.getTime() + timeStepMs);
         if (isFirstStep) logCounter = 1; // Start counter after first step
         else if (logCounter > 0) logCounter++;
     }
@@ -181,6 +204,8 @@ export const runSimulation = async (
 
     return {
         totalHandshakes,
+        handshakeLog, // Add handshakeLog to results
+        activeLinksLog, // Add activeLinksLog to results
         blackoutPeriods,
         totalBlackoutDuration,
         averageBlackoutDuration,

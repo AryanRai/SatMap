@@ -18,6 +18,14 @@ export interface NonPolarOrbitParams {
 
 export type BeaconOrbitParams = SunSynchronousOrbitParams | NonPolarOrbitParams;
 
+export interface SimulationConfig {
+  beaconParams: BeaconOrbitParams;
+  iridiumFovDeg: number;          // Iridium antenna Field of View in degrees
+  beaconFovDeg: number;           // Beacon antenna Field of View in degrees
+  simulationDurationHours: number; // Total simulation duration in hours
+  simulationTimeStepSec: number;   // Time step for simulation propagation in seconds
+}
+
 export interface CartesianVector { // ECI coordinates
     x: number; // km
     y: number; // km
@@ -66,6 +74,8 @@ export interface BlackoutPeriod {
 
 export interface SimulationResults {
     totalHandshakes: number;
+    handshakeLog: Handshake[]; // Log of individual handshake events
+    activeLinksLog: Array<Set<string>>; // Log of active Iridium satellite IDs at each time step
     blackoutPeriods: BlackoutPeriod[];
     totalBlackoutDuration: number; // in seconds or minutes
     averageBlackoutDuration: number; // in seconds or minutes

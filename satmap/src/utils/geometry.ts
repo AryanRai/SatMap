@@ -45,7 +45,7 @@ export const crossProduct = (v1: CartesianVector, v2: CartesianVector): Cartesia
 // --- Constants for Communication Cones ---
 
 // Iridium satellites have downward-pointing antennas with a 62-degree FOV.
-export const IRIDIUM_FOV_DEGREES = 62.0;
+export const IRIDIUM_FOV_DEGREES = 10.0;
 export const IRIDIUM_HALF_FOV_RADIANS = (IRIDIUM_FOV_DEGREES / 2.0) * (Math.PI / 180.0);
 
 // Beacon satellite has two antennas aligned with the horizon.
@@ -111,17 +111,19 @@ export const isPointInCone = (targetPoint: CartesianVector, cone: GeometricCone)
  * The cone points nadir (towards Earth's center) from the satellite's ECI position.
  * 
  * @param iridiumEciPos The ECI position of the Iridium satellite.
+ * @param halfAngleRadians The half-angle of the Iridium satellite's communication cone in radians.
  * @param satelliteId Optional ID for the Iridium satellite.
  * @returns A GeometricCone object representing the Iridium satellite's communication cone.
  */
 export const createIridiumCone = (
-    iridiumEciPos: CartesianVector, 
+    iridiumEciPos: CartesianVector,
+    halfAngleRadians: number,
     satelliteId?: string
 ): GeometricCone => {
     return {
         tip: iridiumEciPos,
         axis: getNadirVector(iridiumEciPos), // Axis points towards Earth's center
-        halfAngle: IRIDIUM_HALF_FOV_RADIANS,
+        halfAngle: halfAngleRadians,
         satelliteId: satelliteId,
     };
 };
@@ -132,12 +134,14 @@ export const createIridiumCone = (
  * 
  * @param beaconEciPos The ECI position of the Beacon satellite.
  * @param beaconEciVelocity The ECI velocity vector of the Beacon satellite.
+ * @param beaconHalfAngleRadians The half-angle of the Beacon's antenna cone in radians.
  * @param beaconId Optional ID for the Beacon satellite.
  * @returns An array containing two GeometricCone objects, or an empty array if inputs are invalid (e.g., zero velocity).
  */
 export const createBeaconAntennaCones = (
     beaconEciPos: CartesianVector,
     beaconEciVelocity: CartesianVector,
+    beaconHalfAngleRadians: number,
     beaconId?: string
 ): GeometricCone[] => {
     // 1. Determine the local zenith vector (normal to the horizontal plane)
@@ -187,14 +191,14 @@ export const createBeaconAntennaCones = (
     const cone1: GeometricCone = {
         tip: beaconEciPos,
         axis: antennaAxis1,
-        halfAngle: BEACON_ANTENNA_HALF_FOV_RADIANS,
+        halfAngle: beaconHalfAngleRadians,
         satelliteId: beaconId ? `${beaconId}-Ant1` : 'Beacon-Ant1',
     };
 
     const cone2: GeometricCone = {
         tip: beaconEciPos,
         axis: antennaAxis2,
-        halfAngle: BEACON_ANTENNA_HALF_FOV_RADIANS,
+        halfAngle: beaconHalfAngleRadians,
         satelliteId: beaconId ? `${beaconId}-Ant2` : 'Beacon-Ant2',
     };
 
