@@ -2,84 +2,83 @@
 
 This project is a React application in TypeScript built for the Space Handshakes Hackathon. It aims to simulate a satellite (Beacon) orbiting Earth and its communication interactions with the Iridium constellation.
 
+**IMPORTANT PROJECT STRUCTURE NOTE:** All source code (`*.ts`, `*.tsx` files, utility directories like `utils`, `services`, `types`, `constants`, `components`) should reside within the `satmap/src/` directory. The main `README.md` for the project (this file) should be at `satmap/README.md`.
+
 ## Summary of Progress So Far
 
 1.  **Project Initialization**:
-    *   Set up a new React application named `satmap` using Create React App with the TypeScript template.
+    *   Set up a new React application named `satmap` using Create React App with the TypeScript template (located in the `satmap/` subdirectory).
 2.  **Dependency Installation**:
     *   Installed `satellite.js` for orbital mechanics calculations.
-    *   Installed `axios` for making HTTP requests (e.g., to fetch TLE data).
-    *   Noted: TypeScript definitions for `satellite.js` (`@types/satellite.js`) are not currently available in the `@types` registry. Custom declarations may be needed later.
-3.  **Directory Structure**:
-    *   Created the following directories within `src/` to organize the codebase:
-        *   `components`: For React UI components.
-        *   `services`: For modules that handle external data or APIs.
-        *   `utils`: For utility functions (orbital calculations, geometry).
-        *   `types`: For TypeScript type definitions.
-        *   `hooks`: For custom React hooks.
-        *   `assets`: For static assets.
-        *   `constants`: For constant values.
-4.  **Initial Type Definitions**:
-    *   Created `src/types/orbit.ts` with initial TypeScript interfaces and enums for orbital parameters, satellite data, and simulation results.
+    *   Installed `axios` for making HTTP requests (e.g., to fetch TLE data) and `@types/axios` for TypeScript support.
+    *   Noted: TypeScript definitions for `satellite.js` (`@types/satellite.js`) are not currently available in the `@types` registry. Created a custom declaration file `src/types/satellite.d.ts` to provide basic typings for the parts of the library being used.
+3.  **Directory Structure (Corrected)**:
+    *   Ensured standard project directories (`components`, `services`, `utils`, `types`, `hooks`, `assets`, `constants`) are correctly placed within `satmap/src/`.
+4.  **Initial Type Definitions (`satmap/src/types/`)**:
+    *   Created `orbit.ts` with initial TypeScript interfaces and enums for orbital parameters, satellite data, and simulation results.
+    *   Created `satellite.d.ts` with custom type declarations for `satellite.js`.
+5.  **Constants (`satmap/src/constants/`)**: 
+    *   Created `physicalConstants.ts` with values for Earth's gravitational parameter (GM), Earth's radius, J2 coefficient, and time conversion factors.
+6.  **TLE Fetching Service (`satmap/src/services/tleService.ts`)**:
+    *   Implemented an initial version of `fetchIridiumTLEs` to get TLE data from CelesTrak, including basic parsing and a fallback to dummy data for development.
+7.  **Orbital Calculation Utilities (`satmap/src/utils/orbitCalculation.ts`)**:
+    *   Implemented `initializeSatrecFromTLE`, `propagateSatellite`, `getOrbitTrack`.
+    *   Added helper functions: `getJulianDate`, `getSunRaDec`.
+    *   **[COMPLETED & VERIFIED]** Replaced experimental direct `SatRec` creation with robust TLE string generation for the Beacon satellite. This involves:
+        *   Calculating orbital elements (mean motion, inclination, RAAN for SSO, epoch details in UTC) from user parameters.
+        *   Formatting these elements into valid TLE line 1 and line 2 strings.
+        *   Using `satellite.twoline2satrec()` to parse these TLEs, ensuring correct `SatRec` initialization.
+        *   This has resolved the previous `NaN` propagation errors for the Beacon.
+8.  **Geometric Calculation Utilities (`satmap/src/utils/geometry.ts`)**:
+    *   Implemented vector math utilities.
+    *   Defined constants for communication cone FOVs.
+    *   Implemented `getNadirVector`, `isPointInCone`, `createIridiumCone`, and `createBeaconAntennaCones`.
+9.  **Simulation Engine (`satmap/src/simulationEngine.ts`)**:
+    *   Developed `runSimulation` function that initializes Beacon and Iridium satellites, propagates them over 24 hours, checks for communication using cone geometry, counts handshakes, and tracks blackout periods.
+    *   **Initial simulation runs with a 700km Sun-Synchronous Beacon (10.5h LSTDN) show successful propagation and plausible results (e.g., ~508 handshakes, 0 blackouts over 24h).**
 
 ## Todo List & Next Steps
 
--   [ ] **TLE Fetching Service (`src/services/tleService.ts`)**:
-    -   [ ] Create a placeholder function for fetching Iridium TLE data.
-    -   [ ] Implement actual TLE fetching logic (e.g., from CelesTrak, respecting rate limits). Consider a fallback mechanism or local TLE file for development.
--   [ ] **Orbital Calculation Utilities (`src/utils/orbitCalculation.ts`)**:
-    -   [ ] Function to parse TLE strings and initialize `satrec` objects using `satellite.js`.
-    -   [ ] Function to propagate satellite orbits over a given time period (e.g., 24 hours) to get time-stamped positions (ECI and Geodetic).
-    -   [ ] Functions to convert user-defined Beacon orbit parameters (Altitude + LST for Sun-synchronous, or Altitude + Inclination for Non-polar) into an initial state vector or `satrec`. This is a core challenge and may require research into orbit determination from these parameters or making simplifying assumptions.
--   [ ] **Geometric Calculation Utilities (`src/utils/geometry.ts`)**:
-    -   [ ] Define Iridium satellite antenna cone (downward-pointing, 62° FOV).
-    -   [ ] Define Beacon satellite antenna cones (two, aligned with the horizon). This will require careful definition of "horizon-aligned" based on the Beacon's position and velocity vector.
-    -   [ ] Function to check for intersection between Beacon's antenna cones and Iridium's communication cones.
-    -   [ ] Function to determine when the Beacon satellite enters/exits a communication cone (for handshake counting).
--   [ ] **Core Simulation Logic**:
-    -   [ ] Develop a simulation loop that advances time in discrete steps over 24 hours.
-    -   [ ] At each time step, calculate positions of the Beacon and all relevant Iridium satellites.
-    -   [ ] Check for communication cone intersections.
-    -   [ ] Track handshakes (each time Beacon enters a *new* Iridium cone).
-    -   [ ] Track periods when the Beacon is outside any communication area.
-    -   [ ] Calculate total handshakes, number of blackouts, and total/average blackout duration.
--   [ ] **UI Components (`src/components/`)**:
-    -   [ ] `OrbitInputForm.tsx`:
-        -   [ ] Select orbit type (Sun-synchronous, Non-polar).
-        -   [ ] Input fields for corresponding parameters (Altitude, LST/Inclination).
-        -   [ ] Validation for input parameters.
-    -   [ ] `SimulationControls.tsx`: Buttons to Start, Pause, Reset the simulation.
-    -   [ ] `Visualization.tsx`:
+-   [x] **Testing & Refinement of Beacon `SatRec` Creation**:
+    -   [x] Test if the manually created `SatRec` objects for the Beacon satellite propagate correctly. (Superseded by TLE generation)
+    -   [x] Refine calculations if inaccuracies are found. (TLE generation implemented and verified)
+-   [ ] **Verify Handshake & Blackout Logic**:
+    -   [ ] Review and confirm the handshake counting mechanism in `simulationEngine.ts`.
+    -   [ ] Test with different Beacon orbital parameters to induce and verify blackout period calculations.
+-   [ ] **UI Components (`satmap/src/components/`)**:
+    -   [x] `OrbitInputForm.tsx`: To select orbit type and input parameters.
+        -   [ ] Basic structure and state for form inputs.
+        -   [ ] onChange handlers for inputs.
+        -   [ ] onSubmit handler to trigger simulation.
+    -   [ ] `SimulationControls.tsx`: Buttons to Start, Pause, Reset the simulation (may be part of a main App component initially).
+    -   [ ] `ResultsDisplay.tsx`: To clearly present simulation outputs.
+    -   [ ] `Visualization.tsx` (Ambitious Stretch Goal):
         -   [ ] Choose a visualization approach (e.g., 2D map, simplified 3D, or a library like CesiumJS, Deck.gl, react-globe.gl).
         -   [ ] Display orbits of the Beacon and Iridium satellites.
         -   [ ] Visually indicate communication links/cones when active.
-        -   [ ] Show areas of no communication.
-    -   [ ] `ResultsDisplay.tsx`:
-        -   [ ] Clearly present: Total handshakes, number of blackouts, total and average blackout duration.
--   [ ] **State Management**:
-    -   [ ] Choose and implement a state management solution (React Context, Zustand, Redux, or prop drilling if simple enough) for managing user inputs, simulation state, and results.
--   [ ] **Constants (`src/constants/`)**:
-    -   [ ] Add relevant physical constants (e.g., Earth's radius, gravitational parameter GM).
-    -   [ ] Iridium constellation details (e.g., number of planes, satellites per plane, nominal altitude/inclination if needed for general reference, though TLEs will provide specifics).
+-   [ ] **State Management (`satmap/src/`)**:
+    -   [ ] Implement state management (e.g., React Context or Zustand) to handle user inputs, simulation state, simulation results, and loading states across components.
+    -   [ ] Connect `OrbitInputForm` to trigger `runSimulation` and update application state with results.
+-   [ ] **Main Application Component (`satmap/src/App.tsx`)**:
+    -   [ ] Integrate `OrbitInputForm`, `ResultsDisplay`, and potentially `Visualization`.
+    -   [ ] Manage overall application flow.
 -   [ ] **Styling and User Experience (UX)**:
     -   [ ] Apply CSS for a clean, intuitive, and aesthetically pleasing interface.
     -   [ ] Ensure the application is responsive and easy to use.
--   [ ] **(Optional) Custom Type Definitions for `satellite.js`**:
-    -   [ ] If usage of `satellite.js` becomes cumbersome without types, create a `satellite.d.ts` file in `src/types/` to define the necessary interfaces.
 -   [ ] **Testing**:
-    -   [ ] Add unit tests for utility functions (orbit calculations, geometry).
-    -   [ ] Consider integration tests for component interactions.
+    -   [ ] Add unit tests for utility functions.
+    -   [ ] Consider integration tests.
 -   [ ] **Build and Deployment**:
-    -   [ ] Ensure the application can be built for production (`npm run build`).
-    -   [ ] Plan for deployment to a web hosting service (e.g., Netlify, Vercel, GitHub Pages).
+    -   [ ] Ensure the application can be built (`npm run build`).
+    -   [ ] Plan for deployment.
 -   [ ] **Documentation & Presentation**:
-    -   [ ] Prepare a video demo.
-    -   [ ] Prepare presentation materials explaining innovation, visualization, usability, aesthetics, and accuracy.
+    -   [ ] Prepare video demo and presentation materials.
 
-## Getting Started with Development
+## Getting Started with Development (Post-Structure Correction)
 
-1.  Navigate to the `satmap` directory: `cd satmap`
-2.  Install dependencies (if not already done): `npm install`
-3.  Start the development server: `npm start`
+1.  Ensure all project code (including this `README.md`) is within the `satmap/` directory. The `src/` directory directly under `satmap/` should contain all TypeScript source files.
+2.  Navigate to the `satmap` directory: `cd satmap`
+3.  Install dependencies (if not already done): `npm install`
+4.  Start the development server: `npm start` (this will now correctly serve the app from `satmap/src/App.tsx`)
 
 This should open the app in your default web browser, usually at `http://localhost:3000`.

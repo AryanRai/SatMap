@@ -13,6 +13,7 @@ export interface NonPolarOrbitParams {
   type: OrbitType.NonPolar;
   altitude: number; // in km
   inclination: number; // in degrees (30-98)
+  raan?: number; // Optional: Right Ascension of the Ascending Node in degrees (0-360)
 }
 
 export type BeaconOrbitParams = SunSynchronousOrbitParams | NonPolarOrbitParams;
@@ -31,9 +32,10 @@ export interface GeodeticPosition {
 
 
 export interface SatellitePosition {
-  timestamp: number; // Unix timestamp (ms) or other consistent time format
-  position: GeodeticPosition; 
-  velocity?: CartesianVector; // km/s, optional for now
+  timestamp: number; // Unix timestamp (ms)
+  positionGeodetic: GeodeticPosition;
+  positionEci: CartesianVector; // Earth-Centered Inertial position
+  velocityEci: CartesianVector; // Earth-Centered Inertial velocity (km/s)
 }
 
 export interface TLE {
@@ -68,4 +70,6 @@ export interface SimulationResults {
     totalBlackoutDuration: number; // in seconds or minutes
     averageBlackoutDuration: number; // in seconds or minutes
     numberOfBlackouts: number;
+    beaconTrack?: SatellitePosition[]; // Optional: for visualization
+    iridiumTracks?: { [satelliteId: string]: SatellitePosition[] }; // Optional: for visualization
 } 

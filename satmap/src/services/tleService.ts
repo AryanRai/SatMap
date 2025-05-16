@@ -1,5 +1,5 @@
 import { TLE } from '../types/orbit';
-import axios, { AxiosError, AxiosResponse } from 'axios';
+import axios from 'axios';
 
 // CelesTrak URL for Iridium TLEs
 const IRIDIUM_TLE_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=iridium&FORMAT=tle';
@@ -12,21 +12,22 @@ const IRIDIUM_TLE_URL = 'https://celestrak.org/NORAD/elements/gp.php?GROUP=iridi
  */
 export const fetchIridiumTLEs = async (): Promise<TLE[]> => {
   try {
-    // IMPORTANT: CelesTrak might block direct client-side requests due to CORS.
-    // This might need to be fetched via a backend proxy in a production environment.
-    const response: AxiosResponse<string> = await axios.get(IRIDIUM_TLE_URL);
-    const tleData: string = response.data;
-    return parseTleFile(tleData);
-  } catch (error) {
-    const axiosError = error as AxiosError;
-    console.error('Error fetching Iridium TLEs:', axiosError.isAxiosError ? axiosError.message : error);
-    if (axiosError.response) {
-      console.error('Status:', axiosError.response.status);
-      console.error('Data:', axiosError.response.data);
+    const response = await axios.get<string>(IRIDIUM_TLE_URL);
+    return parseTleFile(response.data);
+  } catch (error: any) { // Use any for the caught error to simplify type checking for now
+    console.error('Error fetching Iridium TLEs. Details:');
+    if (error.response) {
+      // Potentially an Axios error with a response
+      console.error(`  Status: ${error.response.status}`);
+      console.error(`  Data: ${JSON.stringify(error.response.data)}`);
+    } else if (error.request) {
+      // Potentially an Axios error where the request was made but no response received
+      console.error('  No response received. Request details:', error.request);
+    } else {
+      // Other errors (network issue, or non-Axios error)
+      console.error('  Error message:', error.message);
     }
-    
-    console.warn('Falling back to dummy TLE data.');
-    // Fallback to a known Iridium satellite TLE
+    console.warn('Falling back to dummy TLE data for TLE service.');
     return [
       {
         name: 'IRIDIUM 140 (FALLBACK)',
