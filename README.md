@@ -1,4 +1,4 @@
-# <img src="https://raw.githubusercontent.com/AryanRai/SatMap/main/satmap/public/icon.png" width="30" height="30" alt="SatMap Icon"> 🛰️ SatMap - Space Handshakes Hackathon Project (V1.0) 🚀
+# <img src="https://raw.githubusercontent.com/AryanRai/SatMap/main/satmap/public/icon.png" width="30" height="30" alt="SatMap Icon"> 🛰️ SatMap - (V1.0) 🚀
 
 **Simulating satellite communication links: Beacon 📡 Iridium**
 
