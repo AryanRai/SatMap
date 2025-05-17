@@ -42,13 +42,20 @@ function App() {
   const [sidePanelInitialPosition, setSidePanelInitialPosition] = useState<{ x: number, y: number } | null>(null);
 
   // State for ConsolePanel visibility
-  const [isConsoleVisible, setIsConsoleVisible] = useState<boolean>(true); // Default to visible
+  const [isConsoleVisible, setIsConsoleVisible] = useState<boolean>(false); // Default to hidden
+
+  // State for enabling/disabling the entire console feature
+  const [isConsoleFeatureEnabled, setIsConsoleFeatureEnabled] = useState<boolean>(false); // Default to disabled
 
   // State for communication cone visibility
   const [showCommunicationCones, setShowCommunicationCones] = useState<boolean>(false);
 
   // State for visualization mode (2D or 3D)
   const [visualizationMode, setVisualizationMode] = useState<'2D' | '3D'>('2D');
+
+  // 3D specific toggles
+  const [showSatelliteTrails, setShowSatelliteTrails] = useState<boolean>(true);
+  const [showSatelliteLabels, setShowSatelliteLabels] = useState<boolean>(true);
 
   // State for playback
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -72,7 +79,17 @@ function App() {
     setIsPlaying(false); // Stop playback on new simulation
 
     try {
-      const results = await runSimulation(config);
+      let simulationStartTime: Date | undefined = undefined;
+      if (config.startTimeISO && config.startTimeISO.trim() !== "") {
+        simulationStartTime = new Date(config.startTimeISO);
+        if (isNaN(simulationStartTime.getTime())) {
+          console.warn("[App] Invalid startTimeISO provided, falling back to current time:", config.startTimeISO);
+          setError("Invalid start time provided. Using current time instead.");
+          simulationStartTime = undefined; // Fallback to default in runSimulation
+        }
+      }
+
+      const results = await runSimulation(config, simulationStartTime);
       setSimulationResults(results);
       setCurrentConfigForDisplay(config);
       console.info("[App] Simulation completed successfully.", results); // Example log
@@ -158,12 +175,30 @@ function App() {
     setIsConsoleVisible(prev => !prev);
   };
 
+  const toggleConsoleFeature = () => {
+    setIsConsoleFeatureEnabled(prev => {
+      if (prev) {
+        // If disabling the feature, also hide the panel
+        setIsConsoleVisible(false);
+      }
+      return !prev;
+    });
+  };
+
   const toggleCommunicationCones = () => {
     setShowCommunicationCones(prev => !prev);
   };
 
   const toggleVisualizationMode = () => {
     setVisualizationMode(prevMode => (prevMode === '2D' ? '3D' : '2D'));
+  };
+
+  const toggleSatelliteTrails = () => {
+    setShowSatelliteTrails(prev => !prev);
+  };
+
+  const toggleSatelliteLabels = () => {
+    setShowSatelliteLabels(prev => !prev);
   };
 
   // Playback control handlers
@@ -239,12 +274,27 @@ function App() {
         <button onClick={toggleConnectionsPanel} className="panel-toggle-button">
           {panelButtonText}
         </button>
-        <button onClick={toggleConsolePanel} className="panel-toggle-button console-toggle-button">
-          {isConsoleVisible ? 'Hide Console' : 'Show Console'}
+        <button onClick={toggleConsoleFeature} className="panel-toggle-button console-feature-toggle-button">
+          {isConsoleFeatureEnabled ? 'Disable Console Feature' : 'Enable Console Feature'}
         </button>
+        {isConsoleFeatureEnabled && (
+          <button onClick={toggleConsolePanel} className="panel-toggle-button console-toggle-button">
+            {isConsoleVisible ? 'Hide Console' : 'Show Console'}
+          </button>
+        )}
         <button onClick={toggleCommunicationCones} className="panel-toggle-button cones-toggle-button">
           {showCommunicationCones ? 'Hide FOV Cones' : 'Show FOV Cones'}
         </button>
+        {visualizationMode === '3D' && (
+          <>
+            <button onClick={toggleSatelliteTrails} className="panel-toggle-button trails-toggle-button">
+              {showSatelliteTrails ? 'Hide Trails (3D)' : 'Show Trails (3D)'}
+            </button>
+            <button onClick={toggleSatelliteLabels} className="panel-toggle-button labels-toggle-button">
+              {showSatelliteLabels ? 'Hide Labels (3D)' : 'Show Labels (3D)'}
+            </button>
+          </>
+        )}
         <button onClick={toggleVisualizationMode} className="panel-toggle-button view-mode-toggle-button">
           {visualizationMode === '2D' ? 'Switch to 3D View' : 'Switch to 2D View'}
         </button>
@@ -295,15 +345,34 @@ function App() {
               showCommunicationCones={showCommunicationCones}
               beaconFovDeg={currentConfigForDisplay?.beaconFovDeg}
               iridiumFovDeg={currentConfigForDisplay?.iridiumFovDeg}
+              selectedSatelliteId={selectedSatelliteId}
+              onSatelliteSelect={handleSatelliteSelect}
+              showSatelliteTrails={showSatelliteTrails}
+              showSatelliteLabels={showSatelliteLabels}
             />
           )}
         </div>
       </div>
 
       <main className="main-content-area">
-        <OrbitInputForm onSubmit={handleFormSubmit} isLoading={isLoading} />
+        <OrbitInputForm 
+          isLoading={isLoading}
+          onSubmit={handleFormSubmit}
+        />
         
-        {isLoading && <p className="status-message loading-message">Simulating... Please wait.</p>}
+        {isConsoleFeatureEnabled && (
+          <ConsolePanel 
+            isVisible={isConsoleVisible} 
+            onClose={toggleConsolePanel} 
+          />
+        )}
+        
+        {isLoading && (
+          <div className="loading-overlay">
+            <div className="loading-spinner"></div>
+            <p>Simulating... Please Wait...</p>
+          </div>
+        )}
         
         {error && (
           <div className="status-message error-container">
@@ -325,12 +394,6 @@ function App() {
           isConnectionsPanelOpen={panelVisible} // Pass CurrentConnectionsPanel visibility
         />
       )}
-      
-      {/* Render ConsolePanel */}
-      <ConsolePanel 
-        isVisible={isConsoleVisible} 
-        onClose={toggleConsolePanel} 
-      />
       
       <footer className="App-footer">
         <p>SatMap V2: Orbital Simulation (UI: SatSimUI, Engine: SatCore)</p>

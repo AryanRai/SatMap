@@ -194,4 +194,12 @@ Here's a glimpse of SatMap in action:
 
 ---
 
+## 🚀 V2 Development Status
+
+Development for **Version 2.0** is underway, focusing on significant UI/UX enhancements, new features like a live console feed, and further refinements to the simulation experience. 
+
+Key V2 features aim to deliver a more polished and interactive application, building upon the stable V1.0 core. The scope of V2 includes all 2D map functionalities and the features detailed in the V2 section of `DOCS.md`, up to (but not including) the introduction of 3D map visualizations and advanced map type selections, which are planned for V3.
+
+---
+
 **IMPORTANT PROJECT STRUCTURE NOTE:** All source code (`*.ts`, `*.tsx`) should reside within the `satmap/src/` directory. This `README.md` and `DOCS.md` are in the `satmap/` project root.

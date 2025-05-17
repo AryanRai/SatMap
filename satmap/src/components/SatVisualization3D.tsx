@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useMemo } from 'react';
 import { Canvas, useLoader } from '@react-three/fiber';
-import { OrbitControls, Stars } from '@react-three/drei';
+import { OrbitControls, Stars, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { SimulationResults, SatellitePosition, GeodeticPosition, CartesianVector } from '../types/orbit';
 import {
@@ -19,14 +19,19 @@ const SATELLITE_VISUAL_SIZE = 0.05; // Visual size of satellite spheres in scene
 const CONE_VISUAL_SCALE_FACTOR = 0.1; // Scales cone length
 const CONE_VISUAL_HEIGHT = 1.5; // Visual height of the cone in scene units
 const CONE_RADIAL_SEGMENTS = 16; // Fewer segments for performance
+const LABEL_OFFSET_Y = 0.1; // Offset for labels above satellites
+const LABEL_FONT_SIZE = 0.07;
 
 interface SatVisualization3DProps {
     results: SimulationResults | null;
     currentTimeIndex: number;
-    // Add other props as needed, e.g., selectedSatelliteId, onSatelliteSelect, showCommunicationCones
     showCommunicationCones: boolean;
     beaconFovDeg?: number;
     iridiumFovDeg?: number;
+    selectedSatelliteId?: string | null;
+    onSatelliteSelect?: (id: string) => void;
+    showSatelliteTrails?: boolean;
+    showSatelliteLabels?: boolean;
 }
 
 const SatVisualization3D: React.FC<SatVisualization3DProps> = ({
@@ -35,6 +40,10 @@ const SatVisualization3D: React.FC<SatVisualization3DProps> = ({
     showCommunicationCones,
     beaconFovDeg,
     iridiumFovDeg,
+    selectedSatelliteId,
+    onSatelliteSelect,
+    showSatelliteTrails = true,
+    showSatelliteLabels = true,
 }) => {
     const { beaconTrack, iridiumTracks, handshakeLog, activeLinksLog } = results || {};
     const hasSimulationData = !!(results && beaconTrack && beaconTrack.length > 0 && iridiumTracks);
@@ -47,8 +56,11 @@ const SatVisualization3D: React.FC<SatVisualization3DProps> = ({
     const earthMaterial = useMemo(() => new THREE.MeshStandardMaterial({ map: earthTexture }), [earthTexture]);
 
     const satelliteGeometry = useMemo(() => new THREE.SphereGeometry(SATELLITE_VISUAL_SIZE, 16, 16), []);
-    const beaconMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: 'orange' }), []);
-    const iridiumMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: 'lightblue' }), []);
+    // Base materials
+    const baseBeaconMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: 'orange' }), []);
+    const baseIridiumMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: 'lightblue' }), []);
+    // Highlight material (e.g., emissive yellow)
+    const highlightMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: 'yellow', emissive: 'yellow', emissiveIntensity: 0.7 }), []);
 
     const beaconConeMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: 'gold', transparent: true, opacity: 0.3 }), []);
     const iridiumConeMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: 'cyan', transparent: true, opacity: 0.3 }), []);
@@ -87,6 +99,19 @@ const SatVisualization3D: React.FC<SatVisualization3DProps> = ({
         }).filter(p => p !== null) as { id: string; position: THREE.Vector3 }[];
     }, [iridiumTracks, currentTimeIndex, hasSimulationData]);
 
+    const beaconTrail = useMemo(() => {
+        if (!beaconTrack || beaconTrack.length < 2) return null;
+        return <OrbitTrail track={beaconTrack} color="orange" scaleFactor={SATELLITE_ORBIT_SCALE_FACTOR} />;
+    }, [beaconTrack]);
+
+    const iridiumTrails = useMemo(() => {
+        if (!iridiumTracks) return [];
+        return Object.entries(iridiumTracks).map(([id, track]) => {
+            if (track.length < 2) return null;
+            return <OrbitTrail key={`trail-${id}`} track={track} color="lightblue" scaleFactor={SATELLITE_ORBIT_SCALE_FACTOR} />;
+        }).filter(trail => trail !== null);
+    }, [iridiumTracks]);
+
     return (
         <div style={{ height: 'calc(100vh - 250px)', minHeight:'500px', background: '#000' }}> {/* Adjust height as needed */}
             <Canvas camera={{ position: [0, 0, EARTH_RADIUS_KM_3D * 3], fov: 50 }}>
@@ -99,14 +124,62 @@ const SatVisualization3D: React.FC<SatVisualization3DProps> = ({
                     {/* Original sphereGeometry and meshStandardMaterial are now replaced by memoized versions above */}
                 </mesh>
 
-                {/* Satellites - Rendered Conditionally */}
+                {/* Orbit Trails - Conditionally Rendered */}
+                {hasSimulationData && showSatelliteTrails && beaconTrail}
+                {hasSimulationData && showSatelliteTrails && iridiumTrails}
+
+                {/* Satellites & Labels - Rendered Conditionally */}
                 {hasSimulationData && beaconDisplayPosition && (
-                    <mesh position={beaconDisplayPosition} geometry={satelliteGeometry} material={beaconMaterial} />
+                    <group>
+                        <mesh 
+                            position={beaconDisplayPosition} 
+                            geometry={satelliteGeometry} 
+                            material={selectedSatelliteId === 'Beacon' ? highlightMaterial : baseBeaconMaterial} 
+                            onClick={() => {
+                                if (onSatelliteSelect) onSatelliteSelect('Beacon');
+                            }}
+                        />
+                        {showSatelliteLabels && (
+                            <Text
+                                position={[beaconDisplayPosition.x, beaconDisplayPosition.y + LABEL_OFFSET_Y, beaconDisplayPosition.z]}
+                                fontSize={LABEL_FONT_SIZE}
+                                color="orange"
+                                anchorX="center"
+                                anchorY="middle"
+                            >
+                                Beacon
+                            </Text>
+                        )}
+                    </group>
                 )}
 
-                {hasSimulationData && iridiumDisplayPositions.map(sat => (
-                    <mesh key={sat.id} position={sat.position} geometry={satelliteGeometry} material={iridiumMaterial} />
-                ))}
+                {hasSimulationData && iridiumDisplayPositions.map(sat => {
+                    const iridiumSatName = sat.id; 
+                    return (
+                        <group key={`group-${sat.id}`}>
+                            <mesh 
+                                key={sat.id} 
+                                position={sat.position} 
+                                geometry={satelliteGeometry} 
+                                material={selectedSatelliteId === sat.id ? highlightMaterial : baseIridiumMaterial} 
+                                onClick={() => {
+                                    if (onSatelliteSelect) onSatelliteSelect(sat.id);
+                                }}
+                            />
+                            {showSatelliteLabels && (
+                                <Text
+                                    position={[sat.position.x, sat.position.y + LABEL_OFFSET_Y, sat.position.z]}
+                                    fontSize={LABEL_FONT_SIZE}
+                                    color="lightblue"
+                                    anchorX="center"
+                                    anchorY="middle"
+                                >
+                                    {iridiumSatName.replace('IRIDIUM ', 'I-')}
+                                </Text>
+                            )}
+                        </group>
+                    );
+                })}
 
                 {/* Communication Cones - Rendered Conditionally */}
                 {hasSimulationData && showCommunicationCones && (
@@ -153,7 +226,7 @@ const SatVisualization3D: React.FC<SatVisualization3DProps> = ({
                                 let coneAxisVec3 = eciVecToThreeJSVec(iridiumGeometricCone.axis);
                                 // coneAxisVec3 should point from satellite towards Earth origin.
                                 // If it visually points away, negate it.
-                                coneAxisVec3 = coneAxisVec3.negate(); // Negate the axis here for Iridium
+                                coneAxisVec3 = coneAxisVec3.negate();
 
                                 const coneRadius = Math.tan(iridiumGeometricCone.halfAngle) * CONE_VISUAL_HEIGHT;
 
@@ -193,6 +266,32 @@ const eciToThreeJS = (eci: CartesianVector, scale: number): THREE.Vector3 => {
 // Helper to convert ECI vector (for direction) to THREE.Vector3 (x, z, -y) and normalize
 const eciVecToThreeJSVec = (eciVec: CartesianVector): THREE.Vector3 => {
     return new THREE.Vector3(eciVec.x, eciVec.z, -eciVec.y).normalize();
+};
+
+// Component to render an orbit trail
+interface OrbitTrailProps {
+    track: SatellitePosition[];
+    color: THREE.ColorRepresentation;
+    scaleFactor: number;
+}
+
+const OrbitTrail: React.FC<OrbitTrailProps> = ({ track, color, scaleFactor }) => {
+    const geometry = useMemo(() => {
+        const pointsVec3 = track.map(pos => eciToThreeJS(pos.positionEci, scaleFactor));
+        if (pointsVec3.length < 2) return null;
+        return new THREE.BufferGeometry().setFromPoints(pointsVec3);
+    }, [track, scaleFactor]);
+
+    // Create the THREE.Line object directly
+    // This useMemo call must not be conditional
+    const lineObject = useMemo(() => {
+        if (!geometry) return null; // Handle null geometry case
+        return new THREE.Line(geometry, new THREE.LineBasicMaterial({ color }));
+    }, [geometry, color]);
+
+    if (!lineObject) return null; // Early return if lineObject couldn't be created
+
+    return <primitive object={lineObject} />;
 };
 
 export default SatVisualization3D; 

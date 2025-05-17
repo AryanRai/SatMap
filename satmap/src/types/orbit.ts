@@ -33,6 +33,8 @@ export interface SimulationConfig {
   simulationDurationHours: number;    // Total duration of the simulation in hours.
   simulationTimeStepSec: number;      // Time step for simulation propagation in seconds.
   iridiumDatasetSources?: IridiumDatasetType[]; // Optional: Specifies which Iridium TLE sources to use (e.g., ["IRIDIUM", "IRIDIUM-NEXT"]).
+  handshakeMode: 'one-way' | 'bi-directional'; // Added for handshake logic
+  startTimeISO?: string; // Optional: User-specified start time in ISO format
 }
 
 /** Represents a 3D Cartesian vector, typically used for ECI (Earth-Centered Inertial) coordinates. */

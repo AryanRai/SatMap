@@ -230,3 +230,59 @@ A React component styled using CSS Modules (`SidePanel.module.css`).
 
 ---
 *This document is intended to provide a high-level technical overview. For precise implementation details, please refer to the source code.* 
+
+---
+
+## V2 Roadmap
+
+- [x]  map blank as main page focus add the details when click simulate keep this on top and preloaded without any satellite data and then simulation resuluts below that and config below that
+- [x]  ui refresh use more animations if u can and more futuristic starwars style tesla spacex clean apple style but futuristic
+    - [x]  make the styling a bit consistent with the orange black and grey i dont like the current blue and yellow color u used for the sim resulted and current simulation results used and there is some dark blue background. if u use different colors use some subtle colors to keep it in line with the current ones
+    - [x]  make beacon pulsate and make that a toggle, for attentention grabbing
+    - [x]  make the yellow trail behind the beacon also disablable
+    
+- [x]  make a side menu togglable such that it always displays (if toggled) or if u go to left side of window it always displays current connections and details at that moment
+    - [x]  the hide show button comes over the panel and looks a bit weird becuase its on some text and also the scrollbar is light theme but the main is dark, can we have it dark
+    - [x]  change the background color of the panel to a grey tone rather than dark blue it seems not onsistent with the style also the Beacon Satellite Orbit Parameters and Beacon Satellite Orbit Parameters has a blue background change that to a tone of grey
+    - [x]  do a creative scollbar
+    - [x]  show hide status panel-toggle-button is still above the panel in z axis looks weird
+    - [x]  SimulationConfigDisplay_configDisplayContainer, SimulationResultsDisplay_resultsDisplayContainer, main-content-area needs to be in a grey background tone
+    - [x]  add animation to open panel and change button text to something like hover left/open active comms panel
+    - [x]  clicking any satellite inside the panel opens details relating to panel, we already have the details from clicking on the map it can open it
+    - [x]  add 2 sections like currently connected, prevously connected and never connected
+    - [x]  Previosly connected seems blank is that supposed to be like the, previously connected are sats that at somepoint of time were connected and now arent
+    - [x]  make the details menu that shows details regarding a satellite movable by dragging it aroud set its z index above most else so i can drag it to anywhere i want on the screen since it comes on top of the actual map
+    - [x]  make the sat details panel minimizable
+    - [x]  when invoked from map, keep the sat details close to the map when invoked from the side panel keep it closed to that
+    - [x]  the formatting of how data is presented inside sat details panel can be impoved right now its just poorly formatted text
+    - [x]  since the text inside the sat details panel is copyable/draggable, dragging the panel posses a challenge maybe make a handle
+    - [x]  also make a copy paste mode and have it disabled by default so i can copy data from it
+    - [x]  fix styling for copy paste mode and minimize button on the sat details menu
+    - [x]  when invoked sat details from the panel it is over the simulation results so possible to move it elsewhere?
+    - [x]  also when i open or close the panel it automatically opens the details menu for some reason
+    - [ ]  console is open by default it should be closed
+    
+       
+    
+- [x]  make a console on right side same as the hover panel that shows raw console data
+- [ ]  introduce Glassmorphic ui elements apple or openai sora types like keep the theme colors the same
+- [ ]  Realtime mode that simulates in realtime
+- [ ]  Implement cashe toggle to retain previous data so i dont spam the iridium api
+- [ ]  running sim please wait replace this with an animation
+- [ ]  intro and how to use
+- [ ]  some artifacts on the map when i click it
+- [ ]  default trails on map off and console disabled
+- [ ]  simulation start time formatting
+- [ ]  add docs and readme for v2 comments v2 includes everything until 3d maps and map types
+
+*Note: V2 encompasses all features and improvements up to, but not including, the 3D map visualizations and advanced map type functionalities (which are part of V3).* 
+
+## V3 Roadmap
+
+- [x]  new mode to 3d map of earth and sats, keep the 2d map too
+- [x]  on actual map have a toggle to show communication cone to show fov of beacon and iridium on map
+- [x]  by default have the 3d blank earth in 3d view instead of just displaying a a msg saying run simulation to see earth
+- [ ]  timelapse mode
+- [x]  all features from 2d view to be implemented in 3d
+- [ ]  alignment is 2d map texture alinged with 3d map texture
+- [x]  make date time manually setable 

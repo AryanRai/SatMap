@@ -140,7 +140,6 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({
         setPosition(selectedProjectionSetting.defaultCenter);
         if (hasSimulationData) {
             setTrailLength(DEFAULT_TRAIL_SEGMENT_LENGTH);
-            setShowTrails(true); 
             setShowActiveLinks(true);
             setShowPersistentSatelliteNames(false);
             setPulseBeacon(true);

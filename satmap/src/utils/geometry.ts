@@ -101,6 +101,13 @@ export const isPointInCone = (targetPointEci: CartesianVector, cone: GeometricCo
   const clampedCosAngle = Math.max(-1, Math.min(1, cosAngle));
   const angleToTargetRadians = Math.acos(clampedCosAngle);
 
+  // --- BEGIN DEBUG LOGGING for specific cones ---
+  if (cone.satelliteId && (cone.satelliteId.startsWith('Beacon-Ant') || cone.satelliteId.includes('IRIDIUM') || cone.satelliteId.startsWith('Beacon-ZenithTestCone'))) {
+    console.log(`    [isPointInCone Debug for ${cone.satelliteId} targeting point {x: ${targetPointEci.x.toFixed(0)}, y: ${targetPointEci.y.toFixed(0)}, z: ${targetPointEci.z.toFixed(0)}}]`);
+    console.log(`      Is In Cone?: ${(angleToTargetRadians <= cone.halfAngle)}`);
+  }
+  // --- END DEBUG LOGGING for specific cones ---
+
   return angleToTargetRadians <= cone.halfAngle;
 };
 
@@ -146,6 +153,9 @@ export const createBeaconAntennaCones = (
     beaconHalfAngleRadians: number,
     beaconId?: string
 ): GeometricCone[] => {
+    // TODO: (Long Term) Bi-directional handshake logic is a future enhancement and might require more complex Beacon antenna modeling.
+    // This implementation creates two horizon-aligned cones based on velocity.
+
     const zenithVector = normalize(beaconEciPos);
     if (magnitude(zenithVector) < 1e-9) { // Check if beaconEciPos itself was zero
         console.error("[SatCore/Geometry] Beacon ECI position is zero, cannot determine zenith for antenna cones.");
@@ -161,20 +171,22 @@ export const createBeaconAntennaCones = (
     
     const magHorizontalVelocity = magnitude(horizontalVelocityComponent);
     if (magHorizontalVelocity < 1e-9) {
-        console.warn(
-            `[SatCore/Geometry] Beacon's horizontal velocity component is near zero (mag: ${magHorizontalVelocity}). ` +
-            `Cannot define horizon-aligned antenna axes based on velocity. ` +
-            `Falling back to an arbitrary horizontal direction.`
-        );
-        // Fallback: If velocity projection is zero, pick an arbitrary horizontal direction.
+        // console.warn(
+        //     `[SatCore/Geometry] Beacon's horizontal velocity component is near zero (mag: ${magHorizontalVelocity}). ` +
+        //     `Cannot define horizon-aligned antenna axes based on velocity. ` +
+        //     `Falling back to an arbitrary horizontal direction.`
+        // ); // Reduced console noise for this common case when velocity is purely radial initially
+        // Fallback: If velocity projection is zero (e.g. satellite moving perfectly radially or is stationary relative to ECI origin for a moment),
+        // pick an arbitrary horizontal direction.
         // Try crossing zenith with global X-axis. If zenith is parallel to X, try global Y-axis.
         let arbitraryHorizontalDir: CartesianVector;
         const globalX: CartesianVector = { x: 1, y: 0, z: 0 };
         const globalY: CartesianVector = { x: 0, y: 1, z: 0 };
 
-        if (Math.abs(dotProduct(zenithVector, globalX)) < 0.99) { // If zenith is not largely aligned with X
+        // Check if zenith is not largely aligned with X (dot product far from 1 or -1)
+        if (Math.abs(dotProduct(zenithVector, globalX)) < 0.99) { 
             arbitraryHorizontalDir = normalize(crossProduct(zenithVector, globalX));
-        } else { // Zenith is likely aligned with X, so cross with Y
+        } else { // Zenith is likely aligned with X (or -X), so cross with Y
             arbitraryHorizontalDir = normalize(crossProduct(zenithVector, globalY));
         }
         

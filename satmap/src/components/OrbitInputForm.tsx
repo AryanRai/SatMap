@@ -34,9 +34,13 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
     const [beaconFovDeg, setBeaconFovDeg] = useState<string>('62');   // Beacon Field of View in degrees.
     const [simulationDurationHours, setSimulationDurationHours] = useState<string>('24'); // Simulation duration in hours.
     const [simulationTimeStepSec, setSimulationTimeStepSec] = useState<string>('60');   // Simulation time step in seconds.
+    const [simulationStartTime, setSimulationStartTime] = useState<string>(''); // New state for start time
 
     // State for managing the selection of Iridium TLE dataset sources.
     const [selectedDatasets, setSelectedDatasets] = useState<IridiumDatasetType[]>(["IRIDIUM", "IRIDIUM-NEXT"]);
+
+    // State for handshake mode
+    const [handshakeMode, setHandshakeMode] = useState<'one-way' | 'bi-directional'>('one-way');
 
     /**
      * Handles changes to the orbit type selection.
@@ -139,6 +143,8 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
             simulationDurationHours: durationNum,
             simulationTimeStepSec: timeStepNum,
             iridiumDatasetSources: selectedDatasets,
+            handshakeMode: handshakeMode,
+            startTimeISO: simulationStartTime,
         };
         
         // Pass the configuration to the parent component
@@ -204,6 +210,19 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
 
             {/* General Simulation Settings Section */}
             <h2 style={{ marginTop: '20px' }}>Simulation Settings</h2>
+            
+            {/* Start Time Input - Styled for consistency */}
+            <div className="form-field-group" style={{ marginTop: '10px' }}>
+                <label htmlFor="simulationStartTime">Simulation Start Time (UTC, Optional):</label>
+                <input
+                    type="datetime-local"
+                    id="simulationStartTime"
+                    value={simulationStartTime}
+                    onChange={(e) => setSimulationStartTime(e.target.value)}
+                    // className="themed-input" // Could add a specific class if more styling is needed
+                />
+            </div>
+
             <div style={{ marginTop: '10px' }}>
                 <label htmlFor="iridiumFov">Iridium FOV (degrees): </label>
                 <input
@@ -251,6 +270,19 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
                     min="1"
                     required
                 />
+            </div>
+
+            {/* Handshake Mode Selection */}
+            <div style={{ marginTop: '10px' }}>
+                <label htmlFor="handshakeMode">Handshake Logic: </label>
+                <select 
+                    id="handshakeMode" 
+                    value={handshakeMode} 
+                    onChange={(e) => setHandshakeMode(e.target.value as 'one-way' | 'bi-directional')}
+                >
+                    <option value="one-way">One-Way (Iridium to Beacon)</option>
+                    <option value="bi-directional">Bi-Directional</option>
+                </select>
             </div>
 
             {/* Iridium Dataset Selection Section */}

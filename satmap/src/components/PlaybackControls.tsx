@@ -22,6 +22,24 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
     currentTimestamp,
     hasSimulationData,
 }) => {
+
+    const formatDateTime = (timestamp: number | null): string => {
+        if (timestamp === null) return hasSimulationData ? 'Time N/A' : '-';
+        try {
+            const date = new Date(timestamp);
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+            const seconds = date.getSeconds().toString().padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        } catch (error) {
+            console.error("Error formatting date:", error);
+            return 'Invalid Date';
+        }
+    };
+
     return (
         <div 
             className="controls playback-controls-shared" 
@@ -56,8 +74,20 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
                 style={{ flexGrow: 1, cursor: hasSimulationData && maxTimeIndex > 0 ? 'pointer' : 'default' }}
                 title={hasSimulationData ? `Time step: ${currentTimeIndex + 1}` : "Simulation data needed"}
             />
-            <span className="timestamp-display" style={{ minWidth: '180px', textAlign: 'right' }}>
-                {currentTimestamp ? new Date(currentTimestamp).toLocaleString() : (hasSimulationData ? 'Time N/A' : '-')}
+            <span 
+                className="timestamp-display" 
+                style={{
+                    minWidth: '170px', // Adjusted width
+                    textAlign: 'center', // Centered
+                    fontFamily: "Consolas, Monaco, monospace", // Corrected font family string
+                    fontSize: '0.95em', // Slightly smaller
+                    padding: '5px 8px',
+                    backgroundColor: '#2a2a2a',
+                    borderRadius: '4px',
+                    border: '1px solid #444'
+                }}
+            >
+                {formatDateTime(currentTimestamp)}
             </span>
             {hasSimulationData && (
                 <span className="step-display" style={{ fontSize: '0.9em' }}>Step: {currentTimeIndex + 1} / {maxTimeIndex + 1}</span>
