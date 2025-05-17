@@ -1,5 +1,5 @@
 import { TLE, SatellitePosition, CartesianVector, GeodeticPosition, NonPolarOrbitParams, SunSynchronousOrbitParams, BeaconOrbitParams, OrbitType } from '../types/orbit';
-import { GM_EARTH, RADIUS_EARTH_KM, J2_EARTH, MINUTES_PER_DAY, SECONDS_PER_MINUTE, SECONDS_PER_DAY } from '../constants/physicalConstants';
+import { GM_EARTH, RADIUS_EARTH_KM, J2_EARTH, SECONDS_PER_MINUTE, SECONDS_PER_DAY } from '../constants/physicalConstants';
 // It is possible that satellite.js does not have official TypeScript types.
 // If that's the case, we might need to use `any` or create custom declarations.
 import * as satellite from 'satellite.js'; 

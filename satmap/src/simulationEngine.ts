@@ -175,26 +175,26 @@ export const runSimulation = async (
                         beaconPosition: beaconCurrentGeodetic, // Use converted geodetic
                         iridiumPosition: iridiumCurrentGeodetic // Use converted geodetic
                     });
-                }
             }
+        }
         } 
         
         previousConnectedIridiumSatIds = new Set(currentConnectedIridiumSatIdsThisStep);
         activeLinksLog.push(new Set(currentConnectedIridiumSatIdsThisStep));
 
         if (!beaconIsInCommunicationThisStep) {
-            if (!currentBlackout) { 
+            if (!currentBlackout) {
                 currentBlackout = { startTime: currentTime.getTime() };
             }
         } else {
-            if (currentBlackout) { 
+            if (currentBlackout) {
                 const blackoutEndTimeMs = currentTime.getTime(); 
                 blackoutPeriods.push({
                     startTime: currentBlackout.startTime,
                     endTime: blackoutEndTimeMs,
                     duration: (blackoutEndTimeMs - currentBlackout.startTime) / 1000 
                 });
-                currentBlackout = null; 
+                currentBlackout = null;
             }
         }
 

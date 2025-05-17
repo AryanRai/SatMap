@@ -1,4 +1,5 @@
 import { IridiumDatasetType } from '../services/tleService';
+import { SatRec } from 'satellite.js';
 
 /** Enum defining the types of orbits the Beacon satellite can have. */
 export enum OrbitType {
@@ -89,4 +90,20 @@ export interface SimulationResults {
     numberOfBlackouts: number;        // Total number of distinct blackout periods.
     beaconTrack?: SatellitePosition[]; // Optional: Full orbital track of the Beacon satellite for visualization.
     iridiumTracks?: { [satelliteId: string]: SatellitePosition[] }; // Optional: Full orbital tracks of Iridium satellites for visualization.
-} 
+}
+
+/** Represents a communication cone between the Beacon and an Iridium satellite. */
+export interface CommunicationCone {
+  satelliteId: string;
+  timestamp: number;
+  apex: CartesianVector;      // ECI position of the Iridium satellite
+  axisVector: CartesianVector; // Direction of the cone (e.g., nadir pointing)
+  halfAngleRad: number;       // Half angle of the cone in radians
+}
+
+// Adding SatRec type to global namespace for satellite.js if not already typed
+// This was previously in a custom .d.ts file, including here for completeness
+// if the satellite.d.ts is no longer used or managed.
+// However, it's better practice if satellite.js has official or community types.
+// For now, assuming SatRec is imported correctly if @types/satellite.js or similar is available.
+// The import { SatRec } from 'satellite.js'; at the top handles this if types are present. 

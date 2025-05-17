@@ -7,8 +7,8 @@ import SatVisualization from './components/SatVisualization';
 import SimulationConfigDisplay from './components/SimulationConfigDisplay';
 import SimulationResultsDisplay from './components/SimulationResultsDisplay';
 import CurrentConnectionsPanel from './components/CurrentConnectionsPanel';
-import panelStyles from './components/CurrentConnectionsPanel.module.css';
 import SidePanel from './components/SidePanel';
+import ConsolePanel from './components/ConsolePanel';
 
 /**
  * Main application component for SatMap.
@@ -39,6 +39,9 @@ function App() {
   // State for SidePanel's initial position
   const [sidePanelInitialPosition, setSidePanelInitialPosition] = useState<{ x: number, y: number } | null>(null);
 
+  // State for ConsolePanel visibility
+  const [isConsoleVisible, setIsConsoleVisible] = useState<boolean>(true); // Default to visible
+
   /**
    * Handles the submission of the orbit parameters form.
    * It triggers the simulation engine with the provided configuration.
@@ -46,6 +49,7 @@ function App() {
    * @param config The SimulationConfig object from the OrbitInputForm.
    */
   const handleFormSubmit = async (config: SimulationConfig) => {
+    console.log("[App] New simulation run started with config:", config); // Example log
     setIsLoading(true);
     setSimulationResults(null);
     setError(null);
@@ -58,6 +62,7 @@ function App() {
       const results = await runSimulation(config);
       setSimulationResults(results);
       setCurrentConfigForDisplay(config);
+      console.info("[App] Simulation completed successfully.", results); // Example log
     } catch (e: any) {
       console.error('Simulation failed in App:', e);
       setError(e.message || 'An unexpected error occurred during simulation.');
@@ -135,6 +140,10 @@ function App() {
     }
   };
 
+  const toggleConsolePanel = () => {
+    setIsConsoleVisible(prev => !prev);
+  };
+
   return (
     <div className="App">
       {/* Left Edge Hover Activation Zone */}
@@ -164,6 +173,9 @@ function App() {
       <header className="App-header">
         <button onClick={toggleConnectionsPanel} className="panel-toggle-button">
           {panelButtonText}
+        </button>
+        <button onClick={toggleConsolePanel} className="panel-toggle-button console-toggle-button">
+          {isConsoleVisible ? 'Hide Console' : 'Show Console'}
         </button>
         <h1>🛰️ SatMap: Satellite Handshake Simulator V2</h1>
       </header>
@@ -215,6 +227,12 @@ function App() {
           isConnectionsPanelOpen={panelVisible} // Pass CurrentConnectionsPanel visibility
         />
       )}
+      
+      {/* Render ConsolePanel */}
+      <ConsolePanel 
+        isVisible={isConsoleVisible} 
+        onClose={toggleConsolePanel} 
+      />
       
       <footer className="App-footer">
         <p>SatMap V2: Orbital Simulation (UI: SatSimUI, Engine: SatCore)</p>
