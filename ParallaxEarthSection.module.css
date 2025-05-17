@@ -1,0 +1,37 @@
+/* ParallaxEarthSection.module.css */
+.parallaxSection {
+    position: relative; 
+    width: 100%;
+    z-index: 0; 
+    /* Background is transparent to show PersistentStarfield */
+  }
+  
+  .earthImageContainer {
+    position: fixed; 
+    bottom: 0; 
+    left: 50%; 
+    width: 100%; 
+    /* Earth made smaller: max-width reduced by half from 1600px */
+    max-width: 800px; 
+    z-index: -1; /* Above persistent stars (z-index: -2), but below contentOverlay (z-index: 2) */
+    transition: transform 0.05s linear; 
+    display: flex;
+    justify-content: center;
+    align-items: flex-end; 
+  }
+  
+  .earthImage {
+    width: 100%; 
+    height: auto;
+    object-fit: contain; 
+    opacity: 0.7; /* Earth slightly more opaque */
+    filter: brightness(0.8) contrast(1.1); 
+  }
+  
+  .contentOverlay {
+    position: relative; 
+    z-index: 2; /* Content must be above the Earth image */
+    width: 100%;
+    /* Background for this content area is set in App.tsx's .main-content-area style */
+  }
+  

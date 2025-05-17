@@ -1,0 +1,149 @@
+/* IntroAnimationV2.module.css */
+.introContainer {
+  position: relative; 
+  width: 100%;
+  height: 100vh; 
+  background-color: transparent; 
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden; 
+  z-index: 10; 
+}
+
+/* Satellite Styling & Animation */
+.satelliteBase {
+  position: absolute; 
+  z-index: 5; 
+  width: auto;  
+  height: auto; 
+  object-fit: contain; 
+  /* Transitions for transform (scale, translate), opacity, left, top */
+  transition: transform 1.8s cubic-bezier(0.65, 0, 0.35, 1), /* Smooth transition for scale and position */
+              opacity 1.2s ease-out,
+              left 1.8s cubic-bezier(0.65, 0, 0.35, 1), 
+              top 1.8s cubic-bezier(0.65, 0, 0.35, 1); 
+  will-change: transform, opacity, left, top, position; 
+  transform-origin: center center;
+  /* Base centering for absolute positioning */
+  top: 50%;
+  left: 50%;
+  /* Initial transform will be set by specific state classes */
+}
+
+/* State 1: Satellite starts large in the center */
+.satelliteInitialLarge {
+  transform: translate(-50%, -50%) scale(1.2); 
+  opacity: 1; 
+}
+
+/* State 2: Satellite shrinks to orb size in the center */
+.satelliteOrbSizeCenter {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.65); 
+  opacity: 1; 
+}
+
+/* State 3: Satellite moves to the side, fixed, and is larger */
+.satelliteSideViewFixed {
+  position: fixed !important; /* Override absolute to stick to viewport */
+  top: 30vh !important; /* Position from top of viewport (e.g., 30%) */
+  left: 60px !important; /* Position from left of viewport (e.g., 60px) */
+  /* Target scale for side view (0.5x of initial large 1.2 scale = 0.6) */
+  transform: scale(0.6) !important; 
+  opacity: 1 !important; 
+  max-width: 250px; /* Constrain max size for side view */
+  max-height: 250px;
+}
+
+/* Wobble animation for ORB state */
+.satelliteWobbleOrb {
+  animation: wobbleAnimationOrb 3s ease-in-out infinite;
+}
+@keyframes wobbleAnimationOrb {
+  0%, 100% { transform: translate(-50%, -50%) scale(0.65) rotate(0deg); }
+  25% { transform: translate(calc(-50% - 4px), calc(-50% + 3px)) scale(0.65) rotate(-2.5deg); }
+  50% { transform: translate(-50%, calc(-50% - 3px)) scale(0.65) rotate(0deg); }
+  75% { transform: translate(calc(-50% + 4px), calc(-50% + 2px)) scale(0.65) rotate(2.5deg); }
+}
+
+/* Wobble animation for SIDE view state */
+.satelliteWobbleSide {
+  animation: wobbleAnimationSide 3.5s ease-in-out infinite; /* Slightly different timing */
+}
+@keyframes wobbleAnimationSide {
+  0%, 100% { transform: scale(0.6) rotate(0deg); } /* Note: No translate(-50%,-50%) here as top/left are fixed */
+  25% { transform: scale(0.6) rotate(-2deg) translateX(-3px) translateY(2px); }
+  50% { transform: scale(0.6) rotate(0deg) translateX(0px) translateY(-2px); }
+  75% { transform: scale(0.6) rotate(2deg) translateX(3px) translateY(1px); }
+}
+
+
+/* Title Container for abstract layout */
+.titleContainer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  display: flex; 
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; 
+  opacity: 0; 
+  /* Title appears when satellite is orbSizeCenter */
+  /* Delay needs to match the shrink animation duration */
+  transition: opacity 0.8s ease-out 1.8s; /* Fade in after satellite shrinks */
+  z-index: 15; /* Title above satellite */
+}
+
+.titleVisible {
+  opacity: 1;
+}
+
+.titleHidden {
+  opacity: 0 !important; 
+  pointer-events: none;
+  transition-delay: 0s !important; /* Hide immediately when class is applied */
+}
+
+.titlePart {
+  position: absolute; 
+  color: rgba(230, 230, 240, 0.95); 
+  font-family: "Playfair Display", "Georgia", serif; 
+  font-weight: 500; 
+  text-shadow: 0 0 12px rgba(200, 220, 255, 0.4), 0 0 25px rgba(200, 220, 255, 0.3);
+  white-space: nowrap; 
+  pointer-events: auto; 
+  line-height: 1; 
+}
+
+.titlePart1 { 
+  font-size: clamp(2.2rem, 5.5vw, 4.5rem); 
+  letter-spacing: 0.04em;
+  top: 20%; 
+  left: 65%; 
+  transform: translateX(-50%); 
+  text-transform: uppercase;
+}
+
+.titlePart2 { 
+  font-size: clamp(2.2rem, 5.5vw, 4.5rem); 
+  font-weight: 700; 
+  letter-spacing: 0.03em;
+  top: 50%; 
+  left: 35%; 
+  transform: translate(-50%, -50%); 
+  text-transform: uppercase;
+}
+
+.titlePart3 { 
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-style: italic; 
+  letter-spacing: 0.06em;
+  top: 78%; 
+  left: 50%; 
+  transform: translateX(-50%); 
+}
