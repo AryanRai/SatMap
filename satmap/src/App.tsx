@@ -4,6 +4,8 @@ import OrbitInputForm from './components/OrbitInputForm';
 import { SimulationConfig, SimulationResults } from './types/orbit';
 import { runSimulation } from './simulationEngine';
 import SatVisualization from './components/SatVisualization';
+import SatVisualization3D from './components/SatVisualization3D';
+import PlaybackControls from './components/PlaybackControls';
 import SimulationConfigDisplay from './components/SimulationConfigDisplay';
 import SimulationResultsDisplay from './components/SimulationResultsDisplay';
 import CurrentConnectionsPanel from './components/CurrentConnectionsPanel';
@@ -42,6 +44,16 @@ function App() {
   // State for ConsolePanel visibility
   const [isConsoleVisible, setIsConsoleVisible] = useState<boolean>(true); // Default to visible
 
+  // State for communication cone visibility
+  const [showCommunicationCones, setShowCommunicationCones] = useState<boolean>(false);
+
+  // State for visualization mode (2D or 3D)
+  const [visualizationMode, setVisualizationMode] = useState<'2D' | '3D'>('2D');
+
+  // State for playback
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const ANIMATION_SPEED_MS = 200; // Can be made configurable later
+
   /**
    * Handles the submission of the orbit parameters form.
    * It triggers the simulation engine with the provided configuration.
@@ -57,6 +69,7 @@ function App() {
     setCurrentTimeIndex(0); // Reset time index on new simulation
     setSelectedSatelliteId(null); // Clear selected satellite on new simulation
     setSidePanelInitialPosition(null); // Clear panel position on new simulation
+    setIsPlaying(false); // Stop playback on new simulation
 
     try {
       const results = await runSimulation(config);
@@ -68,6 +81,7 @@ function App() {
       setError(e.message || 'An unexpected error occurred during simulation.');
     }
     setIsLoading(false);
+    setVisualizationMode(prevMode => (prevMode === '2D' ? '3D' : '2D'));
   };
 
   const toggleConnectionsPanel = () => {
@@ -144,6 +158,57 @@ function App() {
     setIsConsoleVisible(prev => !prev);
   };
 
+  const toggleCommunicationCones = () => {
+    setShowCommunicationCones(prev => !prev);
+  };
+
+  const toggleVisualizationMode = () => {
+    setVisualizationMode(prevMode => (prevMode === '2D' ? '3D' : '2D'));
+  };
+
+  // Playback control handlers
+  const maxTimeIndex = simulationResults?.beaconTrack?.length ? simulationResults.beaconTrack.length - 1 : 0;
+  const currentTimestamp = simulationResults?.beaconTrack?.[currentTimeIndex]?.timestamp ?? null;
+  const hasSimulationRun = !!simulationResults;
+
+  const handlePlayPause = () => {
+    if (!hasSimulationRun) return;
+    if (currentTimeIndex >= maxTimeIndex && !isPlaying && maxTimeIndex > 0) {
+      setCurrentTimeIndex(0); // Restart if at end
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleSliderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!hasSimulationRun) return;
+    setIsPlaying(false); // Pause when slider is manually changed
+    setCurrentTimeIndex(Number(event.target.value));
+  };
+
+  const handleResetTime = () => {
+    if (!hasSimulationRun) return;
+    setIsPlaying(false);
+    setCurrentTimeIndex(0);
+  };
+  
+  // Effect for animation progression
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+    if (isPlaying && hasSimulationRun && maxTimeIndex > 0) {
+        intervalId = setInterval(() => {
+            setCurrentTimeIndex(prevIndex => {
+                const nextIndex = prevIndex + 1;
+                if (nextIndex > maxTimeIndex) {
+                    setIsPlaying(false); // Stop when end is reached
+                    return maxTimeIndex;
+                }
+                return nextIndex;
+            });
+        }, ANIMATION_SPEED_MS);
+    }
+    return () => { if (intervalId) clearInterval(intervalId); };
+}, [isPlaying, hasSimulationRun, maxTimeIndex, setCurrentTimeIndex]);
+
   return (
     <div className="App">
       {/* Left Edge Hover Activation Zone */}
@@ -177,9 +242,29 @@ function App() {
         <button onClick={toggleConsolePanel} className="panel-toggle-button console-toggle-button">
           {isConsoleVisible ? 'Hide Console' : 'Show Console'}
         </button>
+        <button onClick={toggleCommunicationCones} className="panel-toggle-button cones-toggle-button">
+          {showCommunicationCones ? 'Hide FOV Cones' : 'Show FOV Cones'}
+        </button>
+        <button onClick={toggleVisualizationMode} className="panel-toggle-button view-mode-toggle-button">
+          {visualizationMode === '2D' ? 'Switch to 3D View' : 'Switch to 2D View'}
+        </button>
         <h1>🛰️ SatMap: Satellite Handshake Simulator V2</h1>
       </header>
       
+      {/* Playback Controls - Placed above the main dashboard layout */}
+      {hasSimulationRun && (
+        <PlaybackControls 
+          currentTimeIndex={currentTimeIndex}
+          maxTimeIndex={maxTimeIndex}
+          isPlaying={isPlaying}
+          onPlayPause={handlePlayPause}
+          onSliderChange={handleSliderChange}
+          onResetTime={handleResetTime}
+          currentTimestamp={currentTimestamp}
+          hasSimulationData={hasSimulationRun}
+        />
+      )}
+
       <div className={`dashboard-layout ${panelVisible ? 'panel-open' : ''}`}>
         {simulationResults && (
           <div className="dashboard-column results-column">
@@ -192,13 +277,26 @@ function App() {
           </div>
         )}
         <div className="dashboard-column map-column">
-          <SatVisualization 
-            results={simulationResults} 
-            selectedSatelliteId={selectedSatelliteId} // Pass state down
-            onSatelliteSelect={handleSatelliteSelect} // Pass new handler
-            currentTimeIndex={currentTimeIndex} // Pass state down
-            setCurrentTimeIndex={setCurrentTimeIndex} // Pass setter down
-          />
+          {visualizationMode === '2D' ? (
+            <SatVisualization 
+              results={simulationResults} 
+              selectedSatelliteId={selectedSatelliteId} // Pass state down
+              onSatelliteSelect={handleSatelliteSelect} // Pass new handler
+              currentTimeIndex={currentTimeIndex} // Pass state down
+              setCurrentTimeIndex={setCurrentTimeIndex} // Pass setter down
+              showCommunicationCones={showCommunicationCones} // Pass down state
+              beaconFovDeg={currentConfigForDisplay?.beaconFovDeg} // Pass down FOV
+              iridiumFovDeg={currentConfigForDisplay?.iridiumFovDeg} // Pass down FOV
+            />
+          ) : (
+            <SatVisualization3D
+              results={simulationResults}
+              currentTimeIndex={currentTimeIndex}
+              showCommunicationCones={showCommunicationCones}
+              beaconFovDeg={currentConfigForDisplay?.beaconFovDeg}
+              iridiumFovDeg={currentConfigForDisplay?.iridiumFovDeg}
+            />
+          )}
         </div>
       </div>
 
