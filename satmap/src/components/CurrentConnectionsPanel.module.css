@@ -1,0 +1,102 @@
+.connectionsPanel {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 280px; /* Adjust width as needed */
+  height: 100vh;
+  background-color: #2c2c2c; /* Consistent dark grey */
+  border-right: 2px solid #ff4500; /* Martian orange accent border */
+  box-shadow: 3px 0px 15px rgba(0, 0, 0, 0.5);
+  color: #e0e0e0;
+  padding: 20px;
+  box-sizing: border-box;
+  z-index: 1000; /* Ensure it's above other content like the map */
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%); /* Initially hidden */
+  transition: transform 0.3s ease-in-out;
+}
+
+/* CLASS TO BE APPLIED TO CurrentConnectionsPanel when it should be visible */
+.visible {
+  transform: translateX(0);
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #555;
+}
+
+.panelHeader h3 {
+  margin: 0;
+  color: #ff4500; /* Martian orange */
+  font-size: 1.3em;
+  font-weight: 400;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 1.8em;
+  cursor: pointer;
+  padding: 0 5px;
+  line-height: 1;
+}
+
+.closeButton:hover {
+  color: #fff;
+}
+
+.panelContent {
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.section {
+  margin-bottom: 20px;
+}
+
+.section h4 {
+  color: #ff6a33; /* Lighter Martian orange */
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+  border-bottom: 1px solid #444;
+  padding-bottom: 5px;
+}
+
+.section p,
+.section li {
+  font-size: 0.9em;
+  margin-bottom: 6px;
+  color: #c0c0c0;
+}
+
+.section ul {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.section li {
+  padding: 4px 0;
+  border-bottom: 1px dashed #3a3a3a;
+}
+
+.section li:last-child {
+  border-bottom: none;
+}
+
+.clickableSatellite {
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.clickableSatellite:hover {
+  color: #ff4500; /* Martian Orange on hover */
+  background-color: rgba(255, 69, 0, 0.1); /* Subtle orange background */
+} 

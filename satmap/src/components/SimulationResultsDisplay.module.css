@@ -1,0 +1,43 @@
+.resultsDisplayContainer {
+  background-color: #2c2c2c; /* Consistent dark grey */
+  padding: 20px;
+  border-radius: 8px;
+  color: #e0e0e0; /* Light text color */
+  border: 1px solid #44475a;
+  height: 100%; /* Allow it to fill space in a flex/grid container */
+  display: flex;
+  flex-direction: column;
+}
+
+.resultsHeader {
+  color: #ff4500; /* Martian orange accent */
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.4em;
+  border-bottom: 1px solid #555; /* Consistent border */
+  padding-bottom: 10px;
+}
+
+.resultsGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Space between individual result items */
+}
+
+.resultItem p {
+  margin: 0;
+  padding: 8px 0;
+  font-size: 0.95em;
+  line-height: 1.6;
+  border-bottom: 1px dashed #4a4a4a; /* Darker, more subtle separator */
+  color: #c0c0c0; /* Consistent text color */
+}
+
+.resultItem:last-child p {
+  border-bottom: none;
+}
+
+.resultItem strong {
+  color: #e0e0e0; /* Consistent strong text color */
+  margin-right: 5px;
+} 

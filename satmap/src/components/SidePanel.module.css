@@ -1,45 +1,133 @@
 .sidePanel {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 300px;
-  max-height: calc(100vh - 160px); /* Adjust based on other controls height */
+  position: fixed;
+  top: 50px;
+  left: 50px;
+  width: 330px;
+  max-height: calc(100vh - 100px);
   overflow-y: auto;
-  background: rgba(30, 30, 30, 0.92); /* Slightly darker, more opaque */
-  color: #ccc; /* Lighter grey for text */
-  padding: 18px;
-  border-radius: 10px;
-  border: 1px solid #555;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.4);
-  z-index: 1000;
-  font-size: 0.9em;
-}
-
-.closeButton {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: transparent;
-  color: #888;
-  border: none;
-  font-size: 1.5em; /* Larger close icon */
-  font-weight: bold;
-  cursor: pointer;
+  background: rgba(30, 30, 30, 0.95);
+  color: #e0e0e0;
   padding: 0;
-  line-height: 1;
+  border-radius: 8px;
+  border: 1px solid #505050;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  z-index: 1050;
+  font-size: 0.9em;
+  display: flex;
+  flex-direction: column;
 }
 
-.closeButton:hover {
-  color: #eee;
+.sidePanel.minimized {
+  height: auto;
+  width: auto;
+  min-width: 200px;
+  overflow: hidden;
 }
 
 .panelHeader {
-  margin-top: 0;
-  margin-bottom: 15px;
-  border-bottom: 1px solid #4a4a4a; /* Softer border */
-  padding-bottom: 10px;
-  color: #ff8c00; /* Martian orange accent */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0;
+  border-bottom: 1px solid #4a4a4a;
+  padding: 8px 12px;
+  color: #ff8c00;
+  font-size: 1.1em;
+  cursor: grab;
+  user-select: none;
+}
+
+.panelTitle {
+  margin: 0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-grow: 1;
+  margin-right: 10px;
+}
+
+.headerButtons {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.headerButton {
+  background-color: rgba(80, 80, 80, 0.7);
+  color: #e0e0e0;
+  border: 1px solid #606060;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: normal;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.headerButton:hover {
+  background-color: rgba(100, 100, 100, 0.8);
+  border-color: #808080;
+  color: #fff;
+}
+
+.headerButton:active {
+  background-color: rgba(60, 60, 60, 0.9);
+}
+
+.buttonText {
+  font-size: 0.95em;
+}
+
+.closeButtonCustom {
   font-size: 1.2em;
+  font-weight: bold;
+  padding: 2px 6px;
+}
+
+.closeButtonCustom:hover {
+  color: #ff6b6b;
+  background-color: rgba(120, 80, 80, 0.8);
+}
+
+.panelContent {
+  padding: 15px;
+  overflow-y: auto;
+  flex-grow: 1;
+  background-color: rgba(40, 40, 40, 0.8);
+}
+
+.section {
+  margin-bottom: 15px;
+}
+
+.sectionTitle {
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: #ffaf50;
+  font-size: 1.05em;
+  border-bottom: 1px solid #555;
+  padding-bottom: 5px;
+}
+
+.infoList {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.infoList li {
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
+.infoList strong {
+  color: #ffc880;
+  margin-right: 5px;
 }
 
 .handshakeList {
@@ -51,17 +139,22 @@
 .handshakeItem {
   margin-bottom: 10px;
   padding: 10px;
-  background: rgba(50, 50, 50, 0.85);
-  border-radius: 6px;
-  border-left: 3px solid #ff8c00; /* Accent border */
+  background: rgba(60, 60, 60, 0.7);
+  border-radius: 4px;
+  border-left: 3px solid #ff8c00;
   font-size: 0.95em;
 }
 
-.handshakeItem strong {
-  color: #ffaf50; /* Lighter orange for emphasis */
+.handshakeItem span {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.handshakeItem span:last-child {
+  margin-bottom: 0;
 }
 
 .noHandshakes {
-  color: #888;
+  color: #aaa;
   font-style: italic;
 } 

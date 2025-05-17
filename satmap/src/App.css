@@ -20,18 +20,57 @@ body {
 
 .App-header {
   background-color: #0d0d0d; /* Very dark, near black for header */
-  padding: 20px;
+  padding: 15px 20px; /* Adjusted padding */
   color: #ff4500; /* Martian orange/rust accent */
   border-bottom: 2px solid #ff4500;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  display: flex; /* Use flexbox */
+  align-items: center; /* Vertically align items */
+  justify-content: space-between; /* Space out button and title */
+  position: relative; /* Needed for z-index to work effectively with fixed children */
+  z-index: 1005; /* Higher than the side panel */
 }
 
 .App-header h1 {
   margin: 0;
-  font-size: 2.5em;
+  font-size: 2.2em; /* Slightly adjusted size */
   font-weight: 300; /* Lighter font weight for a sleeker look */
   letter-spacing: 2px;
   text-transform: uppercase;
+  /* No margin adjustments needed with flexbox like this */
+}
+
+/* Connections Panel Toggle Button */
+.panel-toggle-button {
+  background-color: #ff4500;
+  color: #1a1a1a;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 5px;
+  font-size: 0.9em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  /* margin-right: 20px; Removed, flexbox handles spacing */
+  /* position: absolute; Removed */
+  /* left: 20px; Removed */
+  /* top: 20px; Removed */
+  order: -1; /* Place button before the title if desired */
+}
+
+.panel-toggle-button:hover {
+  background-color: #ff6a33;
+}
+
+/* Left Hover Zone for Panel Activation */
+.left-hover-zone {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 20px; /* Width of the hover-sensitive area */
+  height: 100vh;
+  z-index: 999; /* Below panel but above other content if needed */
+  /* background: rgba(255,0,0,0.1); */ /* For debugging visibility */
 }
 
 main {
@@ -156,3 +195,121 @@ button[type="submit"]:disabled {
 /* For a more futuristic font, you could import one from Google Fonts, e.g., "Orbitron" or "Exo 2" */
 /* @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap'); */
 /* body { font-family: 'Orbitron', sans-serif; } */
+
+/* New Dashboard Layout Styles */
+.dashboard-layout {
+  display: flex;
+  flex-direction: row; /* Side-by-side on larger screens */
+  gap: 20px; /* Space between columns */
+  padding: 20px;
+  align-items: flex-start; /* Align items to the top */
+  flex-wrap: wrap; /* Allow wrapping for responsiveness, though media query will handle primary stacking */
+  transition: padding-left 0.3s ease-in-out; /* Smooth transition for padding change */
+}
+
+/* When panel is open, add padding to the left of dashboard to prevent overlap */
+.dashboard-layout.panel-open {
+  padding-left: 300px; /* Should match panel width + some gap (280px + 20px) */
+}
+
+.dashboard-column {
+  background-color: transparent; /* Columns themselves don't need a background, components inside do */
+  border-radius: 8px;
+  /* flex-grow, flex-shrink, flex-basis will be set per column type */
+}
+
+.results-column,
+.config-column {
+  flex: 1 1 280px; /* Grow, shrink, with a base width for smaller flex items */
+  min-width: 280px; /* Ensure they don't get too squished before wrapping */
+  max-width: 350px; /* Prevent them from becoming too wide */
+}
+
+.map-column {
+  flex: 2 1 500px; /* Map can take more space, base width */
+  min-width: 300px; /* Ensure map has a decent minimum width */
+  /* The SatVisualization component itself has a max-width, so this column can be flexible */
+}
+
+/* Responsive adjustments for dashboard layout */
+@media (max-width: 1024px) { /* Adjust breakpoint as needed, e.g., for tablets */
+  .dashboard-layout {
+    flex-direction: column; /* Stack columns vertically */
+    align-items: stretch; /* Stretch items to fill width */
+  }
+
+  .results-column,
+  .config-column,
+  .map-column {
+    flex-basis: auto; /* Reset basis for vertical stacking */
+    width: 100%;      /* Take full width when stacked */
+    max-width: none;  /* Allow full width */
+    margin-bottom: 20px; /* Add space between stacked items */
+  }
+
+  .map-column {
+    order: -1; /* Optional: Display map on top when stacked */
+  }
+  .results-column {
+    order: 0; /* Results below map */
+  }
+  .config-column {
+    order: 1; /* Config below results */
+  }
+
+  /* Adjust main layout when panel is open on smaller screens */
+  .dashboard-layout.panel-open,
+  .main-content-area.panel-open {
+    /* On smaller screens where panel might overlay or be modal, 
+       you might not need to push content, or handle it differently. 
+       For now, let's assume it still pushes content. 
+       If the panel becomes an overlay, these would be removed. */
+    padding-left: 20px; /* Default padding if panel overlays or is handled differently */
+  }
+}
+
+@media (max-width: 768px) { /* Further adjustments for smaller screens if needed */
+  .dashboard-layout {
+    padding: 10px; /* Reduce padding on very small screens */
+  }
+}
+
+
+.main-content-area {
+  padding: 20px;
+  background-color: #2c2c2c; /* Consistent dark grey */
+  transition: padding-left 0.3s ease-in-out; /* Smooth transition */
+}
+
+/* When panel is open, add padding to the left of main-content-area */
+.main-content-area.panel-open {
+  padding-left: 300px; /* Should match panel width + some gap */
+}
+
+/* Custom Scrollbar Styles (WebKit-based browsers) */
+::-webkit-scrollbar {
+  width: 10px; /* Width of the entire scrollbar */
+  height: 10px; /* Height of the scrollbar (for horizontal scrolls) */
+}
+
+::-webkit-scrollbar-track {
+  background: #202020; /* Dark track background */
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #ff4500; /* Martian orange thumb */
+  border-radius: 5px;
+  border: 2px solid #202020; /* Creates a padding effect around thumb */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #ff6a33; /* Lighter orange on hover */
+}
+
+/* For Firefox - basic color theming */
+/* Note: For more "creative" scrollbars in Firefox, SVG or more complex JS might be needed */
+* {
+  scrollbar-width: thin; /* "auto" or "thin" */
+  scrollbar-color: #ff4500 #202020; /* thumb track */
+}
