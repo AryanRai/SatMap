@@ -1,85 +1,92 @@
+import { IridiumDatasetType } from '../services/tleService';
+
+/** Enum defining the types of orbits the Beacon satellite can have. */
 export enum OrbitType {
   SunSynchronous = 'SunSynchronous',
   NonPolar = 'NonPolar',
 }
 
+/** Parameters for a Sun-Synchronous Orbit (SSO). */
 export interface SunSynchronousOrbitParams {
   type: OrbitType.SunSynchronous;
-  altitude: number; // in km
-  localSolarTimeAtDescendingNode: number; // in hours (e.g., 10.5 for 10:30 AM)
+  altitude: number; // Altitude above Earth's surface in km.
+  localSolarTimeAtDescendingNode: number; // Local Solar Time (LST) at the descending node, in hours (e.g., 10.5 for 10:30 AM).
 }
 
+/** Parameters for a Non-Polar Orbit. */
 export interface NonPolarOrbitParams {
   type: OrbitType.NonPolar;
-  altitude: number; // in km
-  inclination: number; // in degrees (30-98)
-  raan?: number; // Optional: Right Ascension of the Ascending Node in degrees (0-360)
+  altitude: number; // Altitude above Earth's surface in km.
+  inclination: number; // Orbital inclination in degrees (typically 30-98 for LEO).
+  raan?: number; // Optional: Right Ascension of the Ascending Node in degrees (0-360). Defaults to 0 if not specified.
 }
 
+/** Union type for Beacon satellite's orbital parameters, accommodating different orbit types. */
 export type BeaconOrbitParams = SunSynchronousOrbitParams | NonPolarOrbitParams;
 
+/** Configuration settings for a single simulation run. */
 export interface SimulationConfig {
   beaconParams: BeaconOrbitParams;
-  iridiumFovDeg: number;          // Iridium antenna Field of View in degrees
-  beaconFovDeg: number;           // Beacon antenna Field of View in degrees
-  simulationDurationHours: number; // Total simulation duration in hours
-  simulationTimeStepSec: number;   // Time step for simulation propagation in seconds
+  iridiumFovDeg: number;              // Iridium satellite antenna Field of View in degrees.
+  beaconFovDeg: number;               // Beacon satellite antenna Field of View in degrees.
+  simulationDurationHours: number;    // Total duration of the simulation in hours.
+  simulationTimeStepSec: number;      // Time step for simulation propagation in seconds.
+  iridiumDatasetSources?: IridiumDatasetType[]; // Optional: Specifies which Iridium TLE sources to use (e.g., ["IRIDIUM", "IRIDIUM-NEXT"]).
 }
 
-export interface CartesianVector { // ECI coordinates
-    x: number; // km
-    y: number; // km
-    z: number; // km
+/** Represents a 3D Cartesian vector, typically used for ECI (Earth-Centered Inertial) coordinates. */
+export interface CartesianVector {
+    x: number; // x-component in km.
+    y: number; // y-component in km.
+    z: number; // z-component in km.
 }
 
+/** Represents a geodetic position (latitude, longitude, altitude). */
 export interface GeodeticPosition {
-    latitude: number; // degrees
-    longitude: number; // degrees
-    altitude: number; // km
+    latitude: number;  // Latitude in degrees (-90 to 90).
+    longitude: number; // Longitude in degrees (-180 to 180).
+    altitude: number;  // Altitude above Earth's surface in km.
 }
 
-
+/** Represents the state of a satellite at a specific point in time. */
 export interface SatellitePosition {
-  timestamp: number; // Unix timestamp (ms)
-  positionGeodetic: GeodeticPosition;
-  positionEci: CartesianVector; // Earth-Centered Inertial position
-  velocityEci: CartesianVector; // Earth-Centered Inertial velocity (km/s)
+  timestamp: number;                // Unix timestamp in milliseconds.
+  positionGeodetic: GeodeticPosition; // Geodetic coordinates.
+  positionEci: CartesianVector;       // Earth-Centered Inertial (ECI) position vector (km).
+  velocityEci: CartesianVector;       // Earth-Centered Inertial (ECI) velocity vector (km/s).
 }
 
+/** Represents a Two-Line Element (TLE) set for defining an orbit. */
 export interface TLE {
-  name: string;
-  line1: string;
-  line2: string;
+  name: string;   // Name of the satellite.
+  line1: string;  // First line of the TLE.
+  line2: string;  // Second line of the TLE.
 }
 
-export interface CommunicationCone {
-    satelliteId: string;
-    coneCenter: CartesianVector; // Position of the Iridium satellite
-    axisVector: CartesianVector; // Direction the cone is pointing (e.g., towards nadir)
-    halfAngle: number; // Half of the 62-degree FOV, in radians
-}
-
+/** Represents a communication handshake event between the Beacon and an Iridium satellite. */
 export interface Handshake {
-    timestamp: number;
-    iridiumSatelliteId: string;
-    beaconPosition: GeodeticPosition;
-    iridiumPosition: GeodeticPosition;
+    timestamp: number;                // Unix timestamp of the handshake event in milliseconds.
+    iridiumSatelliteId: string;       // ID of the Iridium satellite involved in the handshake.
+    beaconPosition: GeodeticPosition;   // Geodetic position of the Beacon at the time of handshake.
+    iridiumPosition: GeodeticPosition; // Geodetic position of the Iridium satellite at the time of handshake.
 }
 
+/** Represents a period during which the Beacon satellite has no communication link. */
 export interface BlackoutPeriod {
-    startTime: number;
-    endTime: number;
-    duration: number; // in seconds or minutes
+    startTime: number;  // Unix timestamp of the blackout start in milliseconds.
+    endTime: number;    // Unix timestamp of the blackout end in milliseconds.
+    duration: number;   // Duration of the blackout in seconds.
 }
 
+/** Contains all results from a simulation run. */
 export interface SimulationResults {
-    totalHandshakes: number;
-    handshakeLog: Handshake[]; // Log of individual handshake events
-    activeLinksLog: Array<Set<string>>; // Log of active Iridium satellite IDs at each time step
-    blackoutPeriods: BlackoutPeriod[];
-    totalBlackoutDuration: number; // in seconds or minutes
-    averageBlackoutDuration: number; // in seconds or minutes
-    numberOfBlackouts: number;
-    beaconTrack?: SatellitePosition[]; // Optional: for visualization
-    iridiumTracks?: { [satelliteId: string]: SatellitePosition[] }; // Optional: for visualization
+    totalHandshakes: number;          // Total number of unique handshakes during the simulation.
+    handshakeLog: Handshake[];        // Chronological log of all handshake events.
+    activeLinksLog: Array<Set<string>>; // For each simulation time step, a set of Iridium satellite IDs actively linked to the Beacon.
+    blackoutPeriods: BlackoutPeriod[];// Array of all blackout periods encountered.
+    totalBlackoutDuration: number;    // Total duration of all blackouts in seconds.
+    averageBlackoutDuration: number;  // Average duration of a single blackout period in seconds.
+    numberOfBlackouts: number;        // Total number of distinct blackout periods.
+    beaconTrack?: SatellitePosition[]; // Optional: Full orbital track of the Beacon satellite for visualization.
+    iridiumTracks?: { [satelliteId: string]: SatellitePosition[] }; // Optional: Full orbital tracks of Iridium satellites for visualization.
 } 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     ComposableMap,
     Geographies,
@@ -14,42 +14,59 @@ import SidePanel from './SidePanel';
 // This URL points to a TopoJSON file from the official world-atlas repository
 const geoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
+const INITIAL_ZOOM = 1;
+const INITIAL_MAP_POSITION: [number, number] = [0, 20];
+const DEFAULT_TRAIL_SEGMENT_LENGTH = 10;
+const ANIMATION_SPEED_MS = 200;
+
+/**
+ * Props for the SatVisualization component.
+ */
 interface SatVisualizationProps {
+    /** The complete results of the satellite simulation. */
     results: SimulationResults;
 }
 
-const initialZoom = 1;
-const initialPosition: [number, number] = [0, 20];
-const DEFAULT_TRAIL_SEGMENT_LENGTH = 50;
-
+/**
+ * SatVisualization component.
+ * Renders a 2D world map to visualize satellite orbits, handshakes, and active communication links.
+ * Features playback controls (play, pause, slider, reset), map navigation (zoom, pan),
+ * and options to toggle trails, links, and labels.
+ * It also integrates a SidePanel to display details of a selected satellite.
+ */
 const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
-    const { beaconTrack, iridiumTracks, activeLinksLog } = results;
+    const { beaconTrack, iridiumTracks, activeLinksLog, handshakeLog } = results;
     const [hoveredSatellite, setHoveredSatellite] = useState<string | null>(null);
-    const [hoveredSatPosition, setHoveredSatPosition] = useState<GeodeticPosition | null>(null); // For tooltip
-    const [tooltipCoords, setTooltipCoords] = useState<{ x: number, y: number } | null>(null); // For tooltip screen position
+    const [hoveredSatPosition, setHoveredSatPosition] = useState<GeodeticPosition | null>(null);
+    const [tooltipCoords, setTooltipCoords] = useState<{ x: number, y: number } | null>(null);
 
     const [selectedSatelliteId, setSelectedSatelliteId] = useState<string | null>(null);
 
     const [currentTimeIndex, setCurrentTimeIndex] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
-    const animationSpeed = 200; // milliseconds per step
 
-    const [zoom, setZoom] = useState(initialZoom);
-    const [position, setPosition] = useState<[number, number]>(initialPosition);
+    const [zoom, setZoom] = useState(INITIAL_ZOOM);
+    const [position, setPosition] = useState<[number, number]>(INITIAL_MAP_POSITION);
     const [trailLength, setTrailLength] = useState<number>(DEFAULT_TRAIL_SEGMENT_LENGTH);
-    const [showTrails, setShowTrails] = useState<boolean>(true);
+    const [showTrails, setShowTrails] = useState<boolean>(false);
+    const [showActiveLinks, setShowActiveLinks] = useState<boolean>(true);
+    const [showPersistentSatelliteNames, setShowPersistentSatelliteNames] = useState<boolean>(false);
 
-    // Determine the max length of tracks for the slider
+    const mapContainerRef = useRef<HTMLDivElement>(null);
+
     const maxTimeIndex = beaconTrack && beaconTrack.length > 0 ? beaconTrack.length - 1 : 0;
 
     useEffect(() => {
         setCurrentTimeIndex(0);
         setIsPlaying(false);
-        setZoom(initialZoom);
-        setPosition(initialPosition);
+        setZoom(INITIAL_ZOOM);
+        setPosition(INITIAL_MAP_POSITION);
         setTrailLength(DEFAULT_TRAIL_SEGMENT_LENGTH);
-        setShowTrails(true);
-    }, [results]); // Reset animation when results change
+        setShowTrails(false);
+        setShowActiveLinks(true);
+        setShowPersistentSatelliteNames(false);
+        setSelectedSatelliteId(null);
+    }, [results]);
 
     useEffect(() => {
         let intervalId: NodeJS.Timeout | null = null;
@@ -58,20 +75,20 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
                 setCurrentTimeIndex(prevIndex => {
                     const nextIndex = prevIndex + 1;
                     if (nextIndex > maxTimeIndex) {
-                        setIsPlaying(false); // Stop at the end
+                        setIsPlaying(false);
                         return maxTimeIndex;
                     }
                     return nextIndex;
                 });
-            }, animationSpeed);
+            }, ANIMATION_SPEED_MS);
         }
         return () => {
             if (intervalId) clearInterval(intervalId);
         };
-    }, [isPlaying, maxTimeIndex, animationSpeed]);
+    }, [isPlaying, maxTimeIndex]);
 
     const handlePlayPause = () => {
-        if (currentTimeIndex >= maxTimeIndex && !isPlaying) { // If at end and paused, restart
+        if (currentTimeIndex >= maxTimeIndex && !isPlaying) {
             setCurrentTimeIndex(0);
         }
         setIsPlaying(!isPlaying);
@@ -80,21 +97,18 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
     const handleReset = () => {
         setIsPlaying(false);
         setCurrentTimeIndex(0);
-        setZoom(initialZoom);
-        setPosition(initialPosition);
+        setZoom(INITIAL_ZOOM);
+        setPosition(INITIAL_MAP_POSITION);
+        setSelectedSatelliteId(null);
     };
 
     const handleSliderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setIsPlaying(false); // Pause when scrubbing
+        setIsPlaying(false);
         setCurrentTimeIndex(Number(event.target.value));
     };
 
     const handleMarkerClick = (satelliteId: string) => {
-        if (satelliteId.startsWith('IRIDIUM')) {
-            setSelectedSatelliteId(satelliteId);
-        } else {
-            // setSelectedSatelliteId(null); // Keep panel open even if beacon is clicked, or other non-iridium
-        }
+        setSelectedSatelliteId(satelliteId);
     };
 
     const closeSidePanel = () => {
@@ -104,8 +118,8 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
     const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.5, 10));
     const handleZoomOut = () => setZoom(prev => Math.max(prev / 1.5, 0.5));
     const handleResetView = () => {
-        setZoom(initialZoom);
-        setPosition(initialPosition);
+        setZoom(INITIAL_ZOOM);
+        setPosition(INITIAL_MAP_POSITION);
     };
 
     const handleMoveEnd = (pos: { coordinates: [number, number], zoom: number }) => {
@@ -118,7 +132,7 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
         if (!isNaN(newLength) && newLength >= 0) {
             setTrailLength(newLength);
         } else if (event.target.value === '') {
-            setTrailLength(0); // Treat empty as 0
+            setTrailLength(0);
         }
     };
 
@@ -126,8 +140,16 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
         setShowTrails(event.target.checked);
     };
 
-    if (!beaconTrack || !iridiumTracks) {
-        return <p>Waiting for satellite track data...</p>;
+    const handleShowActiveLinksToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setShowActiveLinks(event.target.checked);
+    };
+
+    const handleShowPersistentSatelliteNamesToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setShowPersistentSatelliteNames(event.target.checked);
+    };
+
+    if (!beaconTrack || !iridiumTracks || !activeLinksLog) {
+        return <p>Waiting for satellite track and active link data...</p>;
     }
 
     const allTracks: { [id: string]: SatellitePosition[] } = {
@@ -136,23 +158,24 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
     };
 
     const getTrackColor = (satelliteId: string, isActiveLink: boolean) => {
-        if (satelliteId === 'BEACON') return '#ff4500'; // Beacon orange
+        if (satelliteId === 'BEACON') return '#ff4500';
         if (satelliteId.startsWith('IRIDIUM')) {
-             return isActiveLink ? '#00ff00' : '#61dafb'; // Green if active, else default Iridium blue/cyan
+             return isActiveLink ? '#00ff00' : '#61dafb';
         }
         return '#aaa';
     };
 
     const getMarkerColor = (satelliteId: string, isActiveLink: boolean) => {
         if (satelliteId === 'BEACON') return '#ff4500';
-        return isActiveLink ? '#33ff33' : '#61dafb'; // Brighter Green for active marker
+        return isActiveLink ? '#33ff33' : '#61dafb';
     };
     
     const currentTimestamp = beaconTrack && beaconTrack.length > currentTimeIndex ? beaconTrack[currentTimeIndex]?.timestamp : null;
     const currentActiveIridiumIds = activeLinksLog && activeLinksLog.length > currentTimeIndex ? activeLinksLog[currentTimeIndex] : new Set<string>();
+    const currentBeaconPosition = beaconTrack && beaconTrack.length > currentTimeIndex ? beaconTrack[currentTimeIndex]?.positionGeodetic : null;
 
     return (
-        <div style={{ width: '100%', maxWidth: '900px', margin: '20px auto', border: '1px solid #444', background: '#2c2c2c', borderRadius: '12px', padding: '15px', position: 'relative' }}>
+        <div ref={mapContainerRef} style={{ width: '100%', maxWidth: '900px', margin: '20px auto', border: '1px solid #444', background: '#2c2c2c', borderRadius: '12px', padding: '15px', position: 'relative' }}>
             <div className="controls" style={{ marginBottom: '10px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', color: '#eee' }}>
                 <button onClick={handlePlayPause} style={{ padding: '8px 12px', background: '#555', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                     {isPlaying ? 'Pause' : (currentTimeIndex >= maxTimeIndex ? 'Restart' : 'Play')}
@@ -178,25 +201,47 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
                 <button onClick={handleResetView} style={{ padding: '5px 10px', background: '#555', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Reset View</button>
                 <span style={{marginLeft: 'auto', fontSize: '0.9em' }}>Step: {currentTimeIndex + 1} / {maxTimeIndex + 1}</span>
             </div>
-            <div className="trail-controls" style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px', color: '#eee'}}>
-                <label htmlFor="trailLengthInput" style={{fontSize: '0.9em'}}>Trail Length:</label>
-                <input 
-                    type="number" 
-                    id="trailLengthInput" 
-                    value={trailLength}
-                    onChange={handleTrailLengthChange}
-                    min="0"
-                    disabled={!showTrails}
-                    style={{width: '60px', padding: '4px', background: '#444', color: '#eee', border: '1px solid #666', borderRadius: '3px'}}
-                />
-                <input 
-                    type="checkbox" 
-                    id="showTrailsToggle"
-                    checked={showTrails}
-                    onChange={handleShowTrailsToggle}
-                    style={{cursor: 'pointer'}}
-                />
-                <label htmlFor="showTrailsToggle" style={{fontSize: '0.9em', cursor: 'pointer'}}>Show Trails</label>
+            <div className="visualization-options-controls" style={{ marginBottom: '15px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '15px', color: '#eee'}}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px'}}>
+                    <input 
+                        type="checkbox" 
+                        id="showTrailsToggle"
+                        checked={showTrails}
+                        onChange={handleShowTrailsToggle}
+                        style={{cursor: 'pointer'}}
+                    />
+                    <label htmlFor="showTrailsToggle" style={{fontSize: '0.9em', cursor: 'pointer'}}>Show Trails</label>
+                    <input 
+                        type="number" 
+                        id="trailLengthInput" 
+                        value={trailLength}
+                        onChange={handleTrailLengthChange}
+                        min="0"
+                        disabled={!showTrails}
+                        style={{width: '60px', padding: '4px', background: '#444', color: '#eee', border: '1px solid #666', borderRadius: '3px', marginLeft:'5px'}}
+                    />
+                    <label htmlFor="trailLengthInput" style={{fontSize: '0.9em'}}>(Length)</label>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px'}}>
+                    <input 
+                        type="checkbox" 
+                        id="showActiveLinksToggle"
+                        checked={showActiveLinks}
+                        onChange={handleShowActiveLinksToggle}
+                        style={{cursor: 'pointer'}}
+                    />
+                    <label htmlFor="showActiveLinksToggle" style={{fontSize: '0.9em', cursor: 'pointer'}}>Show Active Links</label>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px'}}>
+                    <input 
+                        type="checkbox" 
+                        id="showPersistentSatelliteNamesToggle"
+                        checked={showPersistentSatelliteNames}
+                        onChange={handleShowPersistentSatelliteNamesToggle}
+                        style={{cursor: 'pointer'}}
+                    />
+                    <label htmlFor="showPersistentSatelliteNamesToggle" style={{fontSize: '0.9em', cursor: 'pointer'}}>Show Satellite Names</label>
+                </div>
             </div>
             <ComposableMap
                 projection="geoMercator"
@@ -231,9 +276,30 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
                         }
                     </Geographies>
 
+                    {showActiveLinks && currentBeaconPosition && currentActiveIridiumIds && Array.from(currentActiveIridiumIds).map(iridiumId => {
+                        const iridiumSatData = iridiumTracks[iridiumId];
+                        if (!iridiumSatData || iridiumSatData.length <= currentTimeIndex) return null;
+                        const iridiumCurrentPosition = iridiumSatData[currentTimeIndex]?.positionGeodetic;
+                        if (!iridiumCurrentPosition) return null;
+
+                        return (
+                            <Line
+                                key={`link-${iridiumId}-${currentTimeIndex}`}
+                                from={[currentBeaconPosition.longitude, currentBeaconPosition.latitude]}
+                                to={[iridiumCurrentPosition.longitude, iridiumCurrentPosition.latitude]}
+                                stroke="#00ff00"
+                                strokeWidth={1.5}
+                                strokeOpacity={0.7}
+                            />
+                        );
+                    })}
+
                     {Object.entries(allTracks).map(([id, track]) => {
-                        if (track.length < 1) return null; // Need at least one point for the marker
-                        const isActive = currentActiveIridiumIds.has(id);
+                        if (track.length < 1) return null;
+                        const currentSatPosition = track[currentTimeIndex]?.positionGeodetic;
+                        if (!currentSatPosition) return null;
+
+                        const isActiveLinkMember = id === 'BEACON' || currentActiveIridiumIds.has(id);
                         
                         const trailStartIndex = Math.max(0, currentTimeIndex - (showTrails ? trailLength : 0) + 1);
                         const trailSegmentForLine = track.slice(trailStartIndex, currentTimeIndex + 1);
@@ -244,119 +310,93 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
                         }
 
                         return (
-                            <React.Fragment key={`frag-${id}`}>
+                            <React.Fragment key={`frag-${id}-${currentTimeIndex}`}>
                                 {trailCoordinates.length >= 2 && (
                                     <Line
                                         key={`track-segment-${id}`}
                                         coordinates={trailCoordinates}
-                                        stroke={getTrackColor(id, isActive)}
-                                        strokeWidth={id === 'BEACON' ? 2 : (isActive ? 2.5 : 1.5)}
-                                        strokeOpacity={isActive ? 0.9 : 0.7}
+                                        stroke={getTrackColor(id, isActiveLinkMember && id !== 'BEACON')}
+                                        strokeWidth={id === 'BEACON' ? 2 : 1.5}
+                                        strokeOpacity={0.6}
                                     />
                                 )}
-                                {/* Marker is always drawn based on currentTimeIndex, even if trail is short */}
-                                {track.length > currentTimeIndex && (() => {
-                                    const currentPositionData = track[currentTimeIndex];
-                                    if (!currentPositionData) return null;
-                                    const { longitude, latitude } = currentPositionData.positionGeodetic;
-                                    return (
-                                        <Marker
-                                            key={`marker-${id}`}
-                                            coordinates={[longitude, latitude]}
+                                <Marker
+                                    key={`marker-${id}-${currentTimeIndex}`}
+                                    coordinates={[currentSatPosition.longitude, currentSatPosition.latitude]}
+                                    onClick={() => handleMarkerClick(id)}
+                                    onMouseEnter={(event) => {
+                                        setHoveredSatellite(id);
+                                        setHoveredSatPosition(currentSatPosition);
+                                        if (mapContainerRef.current) {
+                                            const rect = mapContainerRef.current.getBoundingClientRect();
+                                            setTooltipCoords({ 
+                                                x: event.clientX - rect.left,
+                                                y: event.clientY - rect.top 
+                                            });
+                                        }
+                                    }}
+                                    onMouseLeave={() => {
+                                        setHoveredSatellite(null);
+                                        setHoveredSatPosition(null);
+                                        setTooltipCoords(null);
+                                    }}
+                                >
+                                    <circle
+                                        r={id === 'BEACON' ? 5 : 4}
+                                        fill={getMarkerColor(id, isActiveLinkMember && id !== 'BEACON')}
+                                        stroke={isActiveLinkMember ? "#fff" : "#333"}
+                                        strokeWidth={isActiveLinkMember ? 1 : 0.5}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                    {showPersistentSatelliteNames && (
+                                        <text
+                                            textAnchor="middle"
+                                            y={-8}
+                                            style={{ fill: 'white', fontSize: '10px', pointerEvents: 'none' }}
                                         >
-                                            <g 
-                                                onMouseEnter={(event) => {
-                                                    setHoveredSatellite(id);
-                                                    setHoveredSatPosition(currentPositionData.positionGeodetic);
-                                                    setTooltipCoords({ x: event.clientX, y: event.clientY });
-                                                }}
-                                                onMouseLeave={() => {
-                                                    setHoveredSatellite(null);
-                                                    setHoveredSatPosition(null);
-                                                    setTooltipCoords(null);
-                                                }}
-                                                onMouseMove={(event) => {
-                                                    if (hoveredSatellite === id) { 
-                                                        setTooltipCoords({ x: event.clientX, y: event.clientY });
-                                                    }
-                                                }}
-                                                onClick={() => handleMarkerClick(id)}
-                                                style={{ cursor: id.startsWith('IRIDIUM') ? 'pointer' : 'default' }}
-                                            >
-                                                <circle r={id === 'BEACON' ? 4 : (isActive ? 5 : 3)} fill={getMarkerColor(id, isActive)} stroke="#fff" strokeWidth={0.5} />
-                                                <text
-                                                    textAnchor="middle"
-                                                    y={-8}
-                                                    style={{
-                                                        fontFamily: 'system-ui',
-                                                        fill: getMarkerColor(id, isActive),
-                                                        fontSize: '8px',
-                                                        fontWeight: 'bold',
-                                                        pointerEvents: 'none' 
-                                                    }}
-                                                >
-                                                    {id.startsWith('IRIDIUM') ? id.split(' ').pop() : id}
-                                                </text>
-                                            </g>
-                                        </Marker>
-                                    );
-                                })()}
+                                            {id}
+                                        </text>
+                                    )}
+                                </Marker>
                             </React.Fragment>
                         );
                     })}
 
-                    {/* Draw lines for active handshakes */}
-                    {beaconTrack && beaconTrack.length > currentTimeIndex && Array.from(currentActiveIridiumIds).map(iridiumId => {
-                        const beaconCurrentPos = beaconTrack[currentTimeIndex]?.positionGeodetic;
-                        const iridiumSatTrack = allTracks[iridiumId];
-                        const iridiumCurrentPos = iridiumSatTrack && iridiumSatTrack.length > currentTimeIndex ? iridiumSatTrack[currentTimeIndex]?.positionGeodetic : null;
-
-                        if (beaconCurrentPos && iridiumCurrentPos) {
-                            return (
-                                <Line
-                                    key={`link-${iridiumId}`}
-                                    from={[beaconCurrentPos.longitude, beaconCurrentPos.latitude]}
-                                    to={[iridiumCurrentPos.longitude, iridiumCurrentPos.latitude]}
-                                    stroke="#00ff00" // Active link color (green)
-                                    strokeWidth={1.5}
-                                    strokeDasharray="4 2"
-                                    strokeOpacity={0.8}
-                                />
-                            );
-                        }
-                        return null;
-                    })}
+                    {hoveredSatellite && hoveredSatPosition && tooltipCoords && (
+                        <Marker coordinates={[hoveredSatPosition.longitude, hoveredSatPosition.latitude]}>
+                            {/* This marker is just for positioning the foreignObject, content is inside */}
+                        </Marker>
+                    )}
                 </ZoomableGroup>
             </ComposableMap>
             
-            {hoveredSatellite && hoveredSatPosition && tooltipCoords && (
-                <div style={{
-                    position: 'fixed',
-                    left: tooltipCoords.x + 15, // Offset from cursor
-                    top: tooltipCoords.y + 15,
-                    background: 'rgba(20,20,20,0.85)',
-                    color: '#fff',
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    fontSize: '0.9em',
-                    pointerEvents: 'none', // Important so it doesn't block map interactions
-                    zIndex: 2000, // Above side panel
-                    border: '1px solid #444',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
-                }}>
-                    <strong>{hoveredSatellite}</strong><br />
-                    Lat: {hoveredSatPosition.latitude.toFixed(3)}&deg;<br />
-                    Lon: {hoveredSatPosition.longitude.toFixed(3)}&deg;<br />
-                    Alt: {hoveredSatPosition.altitude.toFixed(1)} km
-                </div>
-            )}
-
-            {selectedSatelliteId && (
+            {selectedSatelliteId && results && (
                 <SidePanel 
                     selectedSatelliteId={selectedSatelliteId} 
-                    simulationResults={results} 
-                    onClose={closeSidePanel} 
+                    simulationResults={results}
+                    onClose={closeSidePanel}
+                    currentTimeIndex={currentTimeIndex}
                 />
+            )}
+            {hoveredSatellite && hoveredSatPosition && tooltipCoords && (
+                <div style={{
+                    position: 'absolute',
+                    left: `${tooltipCoords.x + 15}px`,
+                    top: `${tooltipCoords.y + 15}px`,
+                    background: 'rgba(0,0,0,0.75)',
+                    color: 'white',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    pointerEvents: 'none',
+                    zIndex: 1000,
+                    transform: 'translateY(-100%)',
+                    whiteSpace: 'nowrap'
+                }}>
+                    <strong>{hoveredSatellite}</strong><br />
+                    Lat: {hoveredSatPosition.latitude.toFixed(2)}, Lon: {hoveredSatPosition.longitude.toFixed(2)}<br />
+                    Alt: {hoveredSatPosition.altitude.toFixed(2)} km
+                </div>
             )}
         </div>
     );

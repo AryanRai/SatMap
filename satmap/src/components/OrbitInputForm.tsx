@@ -1,35 +1,82 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import { OrbitType, SunSynchronousOrbitParams, NonPolarOrbitParams, BeaconOrbitParams, SimulationConfig } from '../types/orbit';
+import { IridiumDatasetType } from '../services/tleService';
 
+/**
+ * Props for the OrbitInputForm component.
+ */
 interface OrbitInputFormProps {
+    /** Function to call when the form is submitted with valid simulation configuration. */
     onSubmit: (config: SimulationConfig) => void;
+    /** Boolean indicating if a simulation is currently in progress (to disable the submit button). */
     isLoading: boolean;
 }
 
+/**
+ * OrbitInputForm component.
+ * This form allows users to specify parameters for the Beacon satellite's orbit,
+ * configure general simulation settings (like FOVs, duration, time step),
+ * and select which Iridium TLE datasets to use.
+ * On submission, it validates the input and calls the `onSubmit` prop with the constructed `SimulationConfig`.
+ */
 const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) => {
+    // State for selecting the Beacon satellite's orbit type.
     const [orbitType, setOrbitType] = useState<OrbitType>(OrbitType.SunSynchronous);
-    const [altitude, setAltitude] = useState<string>('700'); // Default altitude in km
-    const [inclination, setInclination] = useState<string>('98'); // Default inclination for SSO
-    const [localSolarTime, setLocalSolarTime] = useState<string>('10.5'); // Default LST (e.g., 10:30 AM)
+    // State for the Beacon's altitude in kilometers.
+    const [altitude, setAltitude] = useState<string>('700');
+    // State for the Beacon's orbital inclination in degrees (used for Non-Polar orbits).
+    const [inclination, setInclination] = useState<string>('98'); // Default for NonPolar if switched, also a common SSO value.
+    // State for the Local Solar Time at Descending Node in hours (used for Sun-Synchronous orbits).
+    const [localSolarTime, setLocalSolarTime] = useState<string>('10.5');
 
-    // New state for additional simulation parameters
-    const [iridiumFovDeg, setIridiumFovDeg] = useState<string>('10'); // Default 10 degrees
-    const [beaconFovDeg, setBeaconFovDeg] = useState<string>('62'); // Default 62 degrees
-    const [simulationDurationHours, setSimulationDurationHours] = useState<string>('24'); // Default 24 hours
-    const [simulationTimeStepSec, setSimulationTimeStepSec] = useState<string>('60'); // Default 60 seconds
+    // State for general simulation settings.
+    const [iridiumFovDeg, setIridiumFovDeg] = useState<string>('62'); // Iridium Field of View in degrees.
+    const [beaconFovDeg, setBeaconFovDeg] = useState<string>('62');   // Beacon Field of View in degrees.
+    const [simulationDurationHours, setSimulationDurationHours] = useState<string>('24'); // Simulation duration in hours.
+    const [simulationTimeStepSec, setSimulationTimeStepSec] = useState<string>('60');   // Simulation time step in seconds.
 
+    // State for managing the selection of Iridium TLE dataset sources.
+    const [selectedDatasets, setSelectedDatasets] = useState<IridiumDatasetType[]>(["IRIDIUM", "IRIDIUM-NEXT"]);
+
+    /**
+     * Handles changes to the orbit type selection.
+     * Updates the `orbitType` state.
+     */
     const handleOrbitTypeChange = (event: ChangeEvent<HTMLSelectElement>) => {
         setOrbitType(event.target.value as OrbitType);
     };
 
+    /**
+     * Handles changes in the Iridium dataset selection checkboxes.
+     * Toggles the inclusion of a dataset in the `selectedDatasets` state array.
+     */
+    const handleDatasetChange = (event: ChangeEvent<HTMLInputElement>) => {
+        const dataset = event.target.value as IridiumDatasetType;
+        setSelectedDatasets(prev =>
+            prev.includes(dataset)
+                ? prev.filter(d => d !== dataset) // Remove if already selected
+                : [...prev, dataset]              // Add if not selected
+        );
+    };
+
+    /**
+     * Handles the form submission event.
+     * Prevents the default form submission, validates all input fields,
+     * constructs the `BeaconOrbitParams` and `SimulationConfig` objects,
+     * and then calls the `onSubmit` prop with the configuration.
+     * Displays alerts for invalid input.
+     */
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+
+        // Parse string inputs to numbers
         const altNum = parseFloat(altitude);
         const iridiumFovNum = parseFloat(iridiumFovDeg);
         const beaconFovNum = parseFloat(beaconFovDeg);
         const durationNum = parseFloat(simulationDurationHours);
         const timeStepNum = parseFloat(simulationTimeStepSec);
 
+        // Input validation for general simulation settings
         if (isNaN(altNum) || altNum <= 0) {
             alert('Please enter a valid positive altitude.');
             return;
@@ -50,9 +97,14 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
             alert('Please enter a valid positive simulation time step.');
             return;
         }
+        if (selectedDatasets.length === 0) {
+            alert('Please select at least one Iridium dataset source.');
+            return;
+        }
 
         let beaconParams: BeaconOrbitParams;
 
+        // Construct Beacon parameters based on the selected orbit type
         if (orbitType === OrbitType.SunSynchronous) {
             const lstNum = parseFloat(localSolarTime);
             if (isNaN(lstNum) || lstNum < 0 || lstNum >= 24) {
@@ -64,9 +116,10 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
                 altitude: altNum,
                 localSolarTimeAtDescendingNode: lstNum,
             };
-        } else {
+        } else { // OrbitType.NonPolar
             const incNum = parseFloat(inclination);
-            if (isNaN(incNum) || incNum < 0 || incNum > 180) { // SGP4 can handle > 90 for retrograde
+            // SGP4 can handle inclinations > 90 degrees for retrograde orbits, up to 180.
+            if (isNaN(incNum) || incNum < 0 || incNum > 180) { 
                 alert('Please enter a valid inclination (0-180 degrees).');
                 return;
             }
@@ -74,22 +127,29 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
                 type: OrbitType.NonPolar,
                 altitude: altNum,
                 inclination: incNum,
+                // RAAN is optional and defaults in the TLE generation if not provided.
             };
         }
 
+        // Construct the full simulation configuration object
         const fullConfig: SimulationConfig = {
             beaconParams,
             iridiumFovDeg: iridiumFovNum,
             beaconFovDeg: beaconFovNum,
             simulationDurationHours: durationNum,
             simulationTimeStepSec: timeStepNum,
+            iridiumDatasetSources: selectedDatasets,
         };
+        
+        // Pass the configuration to the parent component
         onSubmit(fullConfig);
     };
 
     return (
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="orbit-input-form"> {/* Added a class for potential styling */}
             <h2>Beacon Satellite Orbit Parameters</h2>
+            
+            {/* Orbit Type Selection */}
             <div>
                 <label htmlFor="orbitType">Orbit Type: </label>
                 <select id="orbitType" value={orbitType} onChange={handleOrbitTypeChange}>
@@ -98,6 +158,7 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
                 </select>
             </div>
 
+            {/* Altitude Input (Common for all orbit types) */}
             <div style={{ marginTop: '10px' }}>
                 <label htmlFor="altitude">Altitude (km): </label>
                 <input
@@ -110,6 +171,7 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
                 />
             </div>
 
+            {/* Conditional Inputs for Sun-Synchronous Orbit */}
             {orbitType === OrbitType.SunSynchronous && (
                 <div style={{ marginTop: '10px' }}>
                     <label htmlFor="localSolarTime">Local Solar Time at Descending Node (hours): </label>
@@ -125,6 +187,7 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
                 </div>
             )}
 
+            {/* Conditional Inputs for Non-Polar Orbit */}
             {orbitType === OrbitType.NonPolar && (
                 <div style={{ marginTop: '10px' }}>
                     <label htmlFor="inclination">Inclination (degrees): </label>
@@ -133,12 +196,13 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
                         id="inclination"
                         value={inclination}
                         onChange={(e) => setInclination(e.target.value)}
-                        placeholder="e.g., 55 (30-98 recommended for challenge)"
+                        placeholder="e.g., 55 (0-180 valid)"
                         required
                     />
                 </div>
             )}
 
+            {/* General Simulation Settings Section */}
             <h2 style={{ marginTop: '20px' }}>Simulation Settings</h2>
             <div style={{ marginTop: '10px' }}>
                 <label htmlFor="iridiumFov">Iridium FOV (degrees): </label>
@@ -147,7 +211,7 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
                     id="iridiumFov"
                     value={iridiumFovDeg}
                     onChange={(e) => setIridiumFovDeg(e.target.value)}
-                    placeholder="e.g., 10"
+                    placeholder="e.g., 62"
                     min="1" max="180"
                     required
                 />
@@ -189,8 +253,34 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
                 />
             </div>
 
+            {/* Iridium Dataset Selection Section */}
+            <h3 style={{ marginTop: '20px' }}>Iridium Constellation Data Source(s)</h3>
+            <div style={{ marginTop: '10px', display: 'flex', gap: '10px' }}>
+                 <div>
+                    <input
+                        type="checkbox"
+                        id="iridium-original"
+                        value="IRIDIUM"
+                        checked={selectedDatasets.includes("IRIDIUM")}
+                        onChange={handleDatasetChange}
+                    />
+                    <label htmlFor="iridium-original" style={{ marginLeft: '5px' }}>Iridium (Original Block 1)</label>
+                </div>
+                <div>
+                    <input
+                        type="checkbox"
+                        id="iridium-next"
+                        value="IRIDIUM-NEXT"
+                        checked={selectedDatasets.includes("IRIDIUM-NEXT")}
+                        onChange={handleDatasetChange}
+                    />
+                    <label htmlFor="iridium-next" style={{ marginLeft: '5px' }}>Iridium-NEXT</label>
+                </div>
+            </div>
+
+            {/* Submit Button */}
             <div style={{ marginTop: '20px' }}>
-                <button type="submit" disabled={isLoading}>
+                <button type="submit" disabled={isLoading} className="submit-button"> {/* Added a class for potential styling */}
                     {isLoading ? 'Simulating...' : 'Run Simulation'}
                 </button>
             </div>

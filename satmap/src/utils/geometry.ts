@@ -1,39 +1,44 @@
-import { CartesianVector, GeodeticPosition } from '../types/orbit';
-import { RADIUS_EARTH_KM } from '../constants/physicalConstants';
+import { CartesianVector } from '../types/orbit';
 
-// --- Vector Math Utilities ---
+// --- Vector Math Utilities (SatCore module) ---
+// Standard 3D vector operations used in geometric calculations.
 
+/** Calculates the dot product of two Cartesian vectors. */
 export const dotProduct = (v1: CartesianVector, v2: CartesianVector): number => {
   return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
 };
 
+/** Calculates the magnitude (length) of a Cartesian vector. */
 export const magnitude = (v: CartesianVector): number => {
   return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
 };
 
+/** Normalizes a Cartesian vector (scales it to unit length). */
 export const normalize = (v: CartesianVector): CartesianVector => {
   const mag = magnitude(v);
-  if (mag === 0) {
-    // Cannot normalize a zero vector, return as is or throw error
-    // For now, return a zero vector to avoid division by zero errors silently.
-    console.warn('Attempted to normalize a zero vector');
+  if (mag < 1e-9) { // Use a small epsilon for zero check
+    console.warn('[SatCore/Geometry] Attempted to normalize a near-zero vector. Returning zero vector.');
     return { x: 0, y: 0, z: 0 };
   }
   return { x: v.x / mag, y: v.y / mag, z: v.z / mag };
 };
 
+/** Subtracts vector v2 from v1. */
 export const subtract = (v1: CartesianVector, v2: CartesianVector): CartesianVector => {
   return { x: v1.x - v2.x, y: v1.y - v2.y, z: v1.z - v2.z };
 };
 
+/** Adds two Cartesian vectors. */
 export const add = (v1: CartesianVector, v2: CartesianVector): CartesianVector => {
   return { x: v1.x + v2.x, y: v1.y + v2.y, z: v1.z + v2.z };
 };
 
+/** Scales a Cartesian vector by a scalar value. */
 export const scale = (v: CartesianVector, scalar: number): CartesianVector => {
   return { x: v.x * scalar, y: v.y * scalar, z: v.z * scalar };
 };
 
+/** Calculates the cross product of two Cartesian vectors. */
 export const crossProduct = (v1: CartesianVector, v2: CartesianVector): CartesianVector => {
   return {
     x: v1.y * v2.z - v1.z * v2.y,
@@ -42,78 +47,71 @@ export const crossProduct = (v1: CartesianVector, v2: CartesianVector): Cartesia
   };
 };
 
-// --- Constants for Communication Cones ---
+// --- Constants for Communication Cones (SatCore module) ---
 
-// Iridium satellites have downward-pointing antennas with a 62-degree FOV.
-export const IRIDIUM_FOV_DEGREES = 10.0;
-export const IRIDIUM_HALF_FOV_RADIANS = (IRIDIUM_FOV_DEGREES / 2.0) * (Math.PI / 180.0);
+// Default Field of View for Iridium satellite antennas (downward-pointing).
+// This value is also configurable via the UI (SimulationConfig).
+export const IRIDIUM_DEFAULT_FOV_DEGREES = 62.0;
 
-// Beacon satellite has two antennas aligned with the horizon.
-// The FOV for these is not specified, assuming same as Iridium for now, can be changed.
-export const BEACON_ANTENNA_FOV_DEGREES = 62.0; 
-export const BEACON_ANTENNA_HALF_FOV_RADIANS = (BEACON_ANTENNA_FOV_DEGREES / 2.0) * (Math.PI / 180.0);
+// Default Field of View for Beacon satellite antennas (horizon-aligned).
+// This value is also configurable via the UI (SimulationConfig).
+export const BEACON_DEFAULT_ANTENNA_FOV_DEGREES = 62.0;
 
 
-// --- Communication Cone Logic ---
+// --- Communication Cone Logic (SatCore module) ---
 
 /**
- * Defines a communication cone.
- * This might be similar to CommunicationCone in orbit.ts but focused on geometry aspects.
+ * Defines the geometric properties of a communication cone.
  */
 export interface GeometricCone {
-  tip: CartesianVector;       // The position of the satellite (antenna tip)
-  axis: CartesianVector;      // Normalized direction vector the cone is pointing
-  halfAngle: number;        // The half-angle of the cone in radians
-  satelliteId?: string;     // Optional: ID of the satellite this cone belongs to
+  tip: CartesianVector;       // The ECI position of the satellite (antenna tip).
+  axis: CartesianVector;      // Normalized ECI direction vector the cone is pointing.
+  halfAngle: number;        // The half-angle of the cone in radians.
+  satelliteId?: string;     // Optional: ID of the satellite this cone belongs to.
 }
 
 /**
  * Determines the nadir vector (points from satellite to Earth's center) in ECI frame.
- * Assumes Earth is a perfect sphere centered at origin for this calculation.
- * @param satelliteEciPos The ECI position of the satellite.
+ * Assumes Earth is centered at the ECI frame origin.
+ * @param satelliteEciPos The ECI position of the satellite (km).
  * @returns A normalized CartesianVector pointing towards nadir.
  */
 export const getNadirVector = (satelliteEciPos: CartesianVector): CartesianVector => {
-  // Vector from satellite to origin (Earth's center) is -satelliteEciPos.
+  // Vector from satellite to origin (Earth's center) is -1 * satelliteEciPos.
   return normalize(scale(satelliteEciPos, -1));
 };
 
 
 /**
  * Checks if a target point is within a given communication cone.
+ * Uses the dot product method to find the angle between the cone axis and the vector to the target.
  * 
- * @param targetPoint The ECI position of the target (e.g., Beacon satellite).
+ * @param targetPointEci The ECI position of the target (e.g., Beacon satellite) (km).
  * @param cone The communication cone (e.g., from an Iridium satellite).
  * @returns True if the target point is within the cone, false otherwise.
  */
-export const isPointInCone = (targetPoint: CartesianVector, cone: GeometricCone): boolean => {
-  // Vector from the cone's tip (source satellite) to the target point
-  const vectorToTarget = subtract(targetPoint, cone.tip);
+export const isPointInCone = (targetPointEci: CartesianVector, cone: GeometricCone): boolean => {
+  const vectorToTarget = subtract(targetPointEci, cone.tip);
   const normalizedVectorToTarget = normalize(vectorToTarget);
 
-  // The cone's axis should already be normalized.
-  // Calculate the angle between the cone's axis and the vector to the target.
-  // cos(theta) = dot(A, B) / (mag(A) * mag(B))
-  // Since cone.axis and normalizedVectorToTarget are normalized, mag(A)*mag(B) = 1.
+  // Cone axis and normalizedVectorToTarget should both be unit vectors.
   const cosAngle = dotProduct(cone.axis, normalizedVectorToTarget);
   
-  // Clamp cosAngle to [-1, 1] to prevent Math.acos domain errors due to floating point inaccuracies
+  // Clamp cosAngle to [-1, 1] to prevent Math.acos domain errors due to floating point inaccuracies.
   const clampedCosAngle = Math.max(-1, Math.min(1, cosAngle));
-  const angleToTarget = Math.acos(clampedCosAngle); // Angle in radians
+  const angleToTargetRadians = Math.acos(clampedCosAngle);
 
-  // If the angle to the target is less than or equal to the cone's half-angle,
-  // the target is within the cone.
-  return angleToTarget <= cone.halfAngle;
+  return angleToTargetRadians <= cone.halfAngle;
 };
 
 /**
  * Generates the communication cone for an Iridium satellite.
  * The cone points nadir (towards Earth's center) from the satellite's ECI position.
  * 
- * @param iridiumEciPos The ECI position of the Iridium satellite.
+ * @param iridiumEciPos The ECI position of the Iridium satellite (km).
  * @param halfAngleRadians The half-angle of the Iridium satellite's communication cone in radians.
  * @param satelliteId Optional ID for the Iridium satellite.
- * @returns A GeometricCone object representing the Iridium satellite's communication cone.
+ * @returns A GeometricCone object for the Iridium satellite.
  */
 export const createIridiumCone = (
     iridiumEciPos: CartesianVector,
@@ -122,7 +120,7 @@ export const createIridiumCone = (
 ): GeometricCone => {
     return {
         tip: iridiumEciPos,
-        axis: getNadirVector(iridiumEciPos), // Axis points towards Earth's center
+        axis: getNadirVector(iridiumEciPos),
         halfAngle: halfAngleRadians,
         satelliteId: satelliteId,
     };
@@ -130,13 +128,17 @@ export const createIridiumCone = (
 
 /**
  * Creates the two horizon-aligned communication cones for the Beacon satellite.
- * Assumes antennas point along the velocity and anti-velocity vectors projected onto the local horizontal plane.
+ * Antennas are assumed to point along the velocity and anti-velocity vectors
+ * when projected onto the Beacon's local horizontal plane.
+ * This function is currently NOT used by the main simulation handshake logic, as the hackathon
+ * allows a simplification: "as long as the beacon is within the communication FOV of the iridium satellite, they can perform the handshake".
+ * However, it's available if more detailed bi-directional cone checks are needed in the future.
  * 
- * @param beaconEciPos The ECI position of the Beacon satellite.
- * @param beaconEciVelocity The ECI velocity vector of the Beacon satellite.
+ * @param beaconEciPos The ECI position of the Beacon satellite (km).
+ * @param beaconEciVelocity The ECI velocity vector of the Beacon satellite (km/s).
  * @param beaconHalfAngleRadians The half-angle of the Beacon's antenna cone in radians.
  * @param beaconId Optional ID for the Beacon satellite.
- * @returns An array containing two GeometricCone objects, or an empty array if inputs are invalid (e.g., zero velocity).
+ * @returns An array containing two GeometricCone objects, or an empty array if inputs are invalid.
  */
 export const createBeaconAntennaCones = (
     beaconEciPos: CartesianVector,
@@ -144,42 +146,40 @@ export const createBeaconAntennaCones = (
     beaconHalfAngleRadians: number,
     beaconId?: string
 ): GeometricCone[] => {
-    // 1. Determine the local zenith vector (normal to the horizontal plane)
     const zenithVector = normalize(beaconEciPos);
-    if (magnitude(zenithVector) === 0) {
-        console.error("Beacon ECI position is zero, cannot determine zenith.");
+    if (magnitude(zenithVector) < 1e-9) { // Check if beaconEciPos itself was zero
+        console.error("[SatCore/Geometry] Beacon ECI position is zero, cannot determine zenith for antenna cones.");
         return [];
     }
 
-    // 2. Project the velocity vector onto the local horizontal plane.
-    // v_horizontal = v - (v . zenith) * zenith
+    // Project velocity onto the local horizontal plane: v_horiz = v - (v . zenith) * zenith
     const velocityComponentParallelToZenith = scale(
         zenithVector,
         dotProduct(beaconEciVelocity, zenithVector)
     );
     let horizontalVelocityComponent = subtract(beaconEciVelocity, velocityComponentParallelToZenith);
     
-    // Normalize the horizontal velocity component to get the direction for the first antenna.
-    // If the horizontal velocity is zero (e.g., satellite is moving perfectly vertically, which is rare, or velocity is zero),
-    // then the direction is undefined. We need a fallback or to handle this case.
     const magHorizontalVelocity = magnitude(horizontalVelocityComponent);
-    if (magHorizontalVelocity < 1e-9) { // Check against a small epsilon for near-zero magnitude
+    if (magHorizontalVelocity < 1e-9) {
         console.warn(
-            `Beacon's horizontal velocity component is near zero (mag: ${magHorizontalVelocity}). ` +
-            `Cannot reliably define horizon-aligned antenna axes based on velocity. ` +
-            `Falling back to an arbitrary horizontal direction (e.g., X-axis of local frame if defined).`
+            `[SatCore/Geometry] Beacon's horizontal velocity component is near zero (mag: ${magHorizontalVelocity}). ` +
+            `Cannot define horizon-aligned antenna axes based on velocity. ` +
+            `Falling back to an arbitrary horizontal direction.`
         );
-        // Fallback: If velocity projection is zero, we need an alternative way to pick horizontal directions.
-        // One simple, though arbitrary, way is to find a vector perpendicular to zenith.
-        // If zenith is aligned with global Z, pick global X. Otherwise, cross product with a non-parallel vector.
+        // Fallback: If velocity projection is zero, pick an arbitrary horizontal direction.
+        // Try crossing zenith with global X-axis. If zenith is parallel to X, try global Y-axis.
         let arbitraryHorizontalDir: CartesianVector;
-        if (Math.abs(zenithVector.x) < 0.9 && Math.abs(zenithVector.y) < 0.9) { // If zenith is not mostly along Z
-            arbitraryHorizontalDir = normalize(crossProduct(zenithVector, { x: 0, y: 0, z: 1 }));
-        } else { // If zenith is mostly along Z, cross with X to get Y (or -Y)
-            arbitraryHorizontalDir = normalize(crossProduct(zenithVector, { x: 1, y: 0, z: 0 }));
+        const globalX: CartesianVector = { x: 1, y: 0, z: 0 };
+        const globalY: CartesianVector = { x: 0, y: 1, z: 0 };
+
+        if (Math.abs(dotProduct(zenithVector, globalX)) < 0.99) { // If zenith is not largely aligned with X
+            arbitraryHorizontalDir = normalize(crossProduct(zenithVector, globalX));
+        } else { // Zenith is likely aligned with X, so cross with Y
+            arbitraryHorizontalDir = normalize(crossProduct(zenithVector, globalY));
         }
-        if (magnitude(arbitraryHorizontalDir) < 1e-9) { // Still zero? very unlikely if zenith was non-zero
-             console.error("Could not determine a fallback horizontal direction for Beacon antennas.");
+        
+        if (magnitude(arbitraryHorizontalDir) < 1e-9) {
+             console.error("[SatCore/Geometry] Could not determine a fallback horizontal direction for Beacon antennas.");
              return [];
         }
         horizontalVelocityComponent = arbitraryHorizontalDir;
@@ -204,8 +204,3 @@ export const createBeaconAntennaCones = (
 
     return [cone1, cone2];
 };
-
-
-// TODO:
-// 1. Logic for handshake counting (when Beacon *enters* a cone).
-// 2. Logic for blackout periods. 

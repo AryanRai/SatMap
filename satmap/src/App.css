@@ -122,7 +122,7 @@ button[type="submit"]:disabled {
   background-color: #555;
   color: #888;
   cursor: not-allowed;
-}
+  }
 
 .simulation-results-container p,
 .simulation-error-container pre {
