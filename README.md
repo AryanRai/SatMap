@@ -1,4 +1,4 @@
-# 🛰️ SatMap - Space Handshakes Hackathon Project (V1.0) 🚀
+# <img src="./public/icon.png" width="30" height="30" alt="SatMap Icon"> 🛰️ SatMap - Space Handshakes Hackathon Project (V1.0) 🚀
 
 **Simulating satellite communication links: Beacon 📡 Iridium**
 
@@ -58,11 +58,26 @@ The simulation process in SatMap follows these key steps:
 ---
 ## 🖼️ Sneak Peek
 
-*(A GIF showcasing the simulation map with moving satellites, trails, and active links would be ideal here!)*
+Here's a glimpse of SatMap in action:
 
-<!-- Add GIF of simulation in action here -->
-<!-- Add Screenshot of Orbit Input Form here -->
-<!-- Add Screenshot of Side Panel with data here -->
+**Main Application View & Input Form:**
+![Main Page Layout](./public/MainPage.png)
+
+**Configuring Simulation Parameters:**
+![Parameter Settings](./public/ParametersSettings.png)
+
+**Simulation Map Visualization:**
+![Basic Map View](./public/Map.png)
+
+**Map with Trails and Satellite Names:**
+![Map with Trails and Names](./public/MapWithTrailandNames.png)
+
+**Simulation Results Summary:**
+![Simulation Results Display](./public/SimResults.png)
+
+**Detailed Satellite Information (Side Panel):**
+![Side Menu with Satellite Details](./public/SideMenu.png)
+
 
 ---
 
