@@ -23,8 +23,8 @@ const ANIMATION_SPEED_MS = 200;
  * Props for the SatVisualization component.
  */
 interface SatVisualizationProps {
-    /** The complete results of the satellite simulation. */
-    results: SimulationResults;
+    /** The complete results of the satellite simulation, or null if no simulation has run. */
+    results: SimulationResults | null;
 }
 
 /**
@@ -35,7 +35,9 @@ interface SatVisualizationProps {
  * It also integrates a SidePanel to display details of a selected satellite.
  */
 const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
-    const { beaconTrack, iridiumTracks, activeLinksLog, handshakeLog } = results;
+    // Destructure with default {} if results is null, to prevent errors on initial load
+    const { beaconTrack, iridiumTracks, activeLinksLog, handshakeLog } = results || {};
+
     const [hoveredSatellite, setHoveredSatellite] = useState<string | null>(null);
     const [hoveredSatPosition, setHoveredSatPosition] = useState<GeodeticPosition | null>(null);
     const [tooltipCoords, setTooltipCoords] = useState<{ x: number, y: number } | null>(null);
@@ -54,23 +56,31 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
 
     const mapContainerRef = useRef<HTMLDivElement>(null);
 
-    const maxTimeIndex = beaconTrack && beaconTrack.length > 0 ? beaconTrack.length - 1 : 0;
+    // Determine if there is valid simulation data to display
+    const hasSimulationData = !!(results && beaconTrack && beaconTrack.length > 0);
+    const maxTimeIndex = hasSimulationData && beaconTrack ? beaconTrack.length - 1 : 0;
 
     useEffect(() => {
+        // Reset state when new results come in or results are cleared
         setCurrentTimeIndex(0);
         setIsPlaying(false);
         setZoom(INITIAL_ZOOM);
         setPosition(INITIAL_MAP_POSITION);
-        setTrailLength(DEFAULT_TRAIL_SEGMENT_LENGTH);
-        setShowTrails(false);
-        setShowActiveLinks(true);
-        setShowPersistentSatelliteNames(false);
         setSelectedSatelliteId(null);
-    }, [results]);
+        // Only reset visual options if new data is loaded, not if it's cleared
+        if (hasSimulationData) {
+            setTrailLength(DEFAULT_TRAIL_SEGMENT_LENGTH);
+            setShowTrails(true); // Default to showing trails if data exists
+            setShowActiveLinks(true);
+            setShowPersistentSatelliteNames(false);
+        } else {
+            setShowTrails(false); // Ensure trails are off if no data
+        }
+    }, [results, hasSimulationData]); // Depend on results and the derived hasSimulationData
 
     useEffect(() => {
         let intervalId: NodeJS.Timeout | null = null;
-        if (isPlaying && maxTimeIndex > 0) {
+        if (isPlaying && hasSimulationData && maxTimeIndex > 0) {
             intervalId = setInterval(() => {
                 setCurrentTimeIndex(prevIndex => {
                     const nextIndex = prevIndex + 1;
@@ -85,9 +95,10 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
         return () => {
             if (intervalId) clearInterval(intervalId);
         };
-    }, [isPlaying, maxTimeIndex]);
+    }, [isPlaying, hasSimulationData, maxTimeIndex]);
 
     const handlePlayPause = () => {
+        if (!hasSimulationData) return;
         if (currentTimeIndex >= maxTimeIndex && !isPlaying) {
             setCurrentTimeIndex(0);
         }
@@ -95,6 +106,7 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
     };
 
     const handleReset = () => {
+        if (!hasSimulationData) return;
         setIsPlaying(false);
         setCurrentTimeIndex(0);
         setZoom(INITIAL_ZOOM);
@@ -103,11 +115,13 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
     };
 
     const handleSliderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (!hasSimulationData) return;
         setIsPlaying(false);
         setCurrentTimeIndex(Number(event.target.value));
     };
 
     const handleMarkerClick = (satelliteId: string) => {
+        if (!hasSimulationData) return;
         setSelectedSatelliteId(satelliteId);
     };
 
@@ -148,14 +162,15 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
         setShowPersistentSatelliteNames(event.target.checked);
     };
 
-    if (!beaconTrack || !iridiumTracks || !activeLinksLog) {
-        return <p>Waiting for satellite track and active link data...</p>;
-    }
-
-    const allTracks: { [id: string]: SatellitePosition[] } = {
+    // Data for the current time step, only if data exists
+    const currentTimestamp = hasSimulationData && beaconTrack ? beaconTrack[currentTimeIndex]?.timestamp : null;
+    const currentActiveIridiumIds = hasSimulationData && activeLinksLog ? (activeLinksLog[currentTimeIndex] || new Set<string>()) : new Set<string>();
+    const currentBeaconPosition = hasSimulationData && beaconTrack ? beaconTrack[currentTimeIndex]?.positionGeodetic : null;
+    
+    const allTracks = hasSimulationData && beaconTrack && iridiumTracks ? {
         BEACON: beaconTrack,
         ...iridiumTracks
-    };
+    } : {}; // Empty object if no data
 
     const getTrackColor = (satelliteId: string, isActiveLink: boolean) => {
         if (satelliteId === 'BEACON') return '#ff4500';
@@ -170,89 +185,141 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
         return isActiveLink ? '#33ff33' : '#61dafb';
     };
     
-    const currentTimestamp = beaconTrack && beaconTrack.length > currentTimeIndex ? beaconTrack[currentTimeIndex]?.timestamp : null;
-    const currentActiveIridiumIds = activeLinksLog && activeLinksLog.length > currentTimeIndex ? activeLinksLog[currentTimeIndex] : new Set<string>();
-    const currentBeaconPosition = beaconTrack && beaconTrack.length > currentTimeIndex ? beaconTrack[currentTimeIndex]?.positionGeodetic : null;
+    // Tooltip handler
+    const handleSatelliteHover = (satelliteId: string | null, satPosition: GeodeticPosition | null, event?: React.MouseEvent) => {
+        if (!hasSimulationData && satelliteId) return; // Don't show tooltips if no data for satellites
+        setHoveredSatellite(satelliteId);
+        setHoveredSatPosition(satPosition);
+        if (satelliteId && event && mapContainerRef.current) {
+            const rect = mapContainerRef.current.getBoundingClientRect();
+            setTooltipCoords({ 
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top 
+            });
+        } else {
+            setTooltipCoords(null);
+        }
+    };
+
+    // Type guard for filterZoomEvent
+    const isHtmlElement = (target: EventTarget | null): target is HTMLElement => {
+        return target instanceof HTMLElement;
+    };
 
     return (
-        <div ref={mapContainerRef} style={{ width: '100%', maxWidth: '900px', margin: '20px auto', border: '1px solid #444', background: '#2c2c2c', borderRadius: '12px', padding: '15px', position: 'relative' }}>
-            <div className="controls" style={{ marginBottom: '10px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', color: '#eee' }}>
-                <button onClick={handlePlayPause} style={{ padding: '8px 12px', background: '#555', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                    {isPlaying ? 'Pause' : (currentTimeIndex >= maxTimeIndex ? 'Restart' : 'Play')}
-                </button>
-                <button onClick={handleReset} style={{ padding: '8px 12px', background: '#555', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                    Reset
-                </button>
-                <input
-                    type="range"
-                    min="0"
-                    max={maxTimeIndex}
-                    value={currentTimeIndex}
-                    onChange={handleSliderChange}
-                    style={{ flexGrow: 1, cursor: 'pointer' }}
-                />
-                <span style={{ minWidth: '180px', textAlign: 'right' }}>
-                     {currentTimestamp ? new Date(currentTimestamp).toLocaleString() : 'Time N/A'}
-                </span>
-            </div>
-            <div className="map-controls" style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px'}}>
+        <div ref={mapContainerRef} className="sat-visualization-container" style={{ width: '100%', maxWidth: '900px', margin: '20px auto', border: '1px solid #444', background: '#2c2c2c', borderRadius: '12px', padding: '15px', position: 'relative' }}>
+            {/* Playback Controls: Conditionally render or disable based on hasSimulationData */} 
+            {hasSimulationData && (
+                <div 
+                    className="controls playback-controls" 
+                    style={{ marginBottom: '10px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '10px', color: '#eee' }}
+                    onMouseDownCapture={(e) => e.stopPropagation()} // Stop propagation for mouse events
+                    onTouchStartCapture={(e) => e.stopPropagation()} // Stop propagation for touch events
+                >
+                    <button onClick={handlePlayPause} disabled={!hasSimulationData} style={{ padding: '8px 12px', background: '#555', color: 'white', border: 'none', borderRadius: '4px', cursor: hasSimulationData ? 'pointer' : 'default' }}>
+                        {isPlaying ? 'Pause' : (currentTimeIndex >= maxTimeIndex ? 'Restart' : 'Play')}
+                    </button>
+                    <button onClick={handleReset} disabled={!hasSimulationData} style={{ padding: '8px 12px', background: '#555', color: 'white', border: 'none', borderRadius: '4px', cursor: hasSimulationData ? 'pointer' : 'default' }}>
+                        Reset
+                    </button>
+                    <input
+                        type="range"
+                        min="0"
+                        max={maxTimeIndex}
+                        value={currentTimeIndex}
+                        onChange={handleSliderChange}
+                        disabled={!hasSimulationData}
+                        style={{ flexGrow: 1, cursor: hasSimulationData ? 'pointer' : 'default' }}
+                        title={hasSimulationData ? `Time step: ${currentTimeIndex + 1}` : "Simulation data needed"}
+                    />
+                    <span className="timestamp-display" style={{ minWidth: '180px', textAlign: 'right' }}>
+                        {currentTimestamp ? new Date(currentTimestamp).toLocaleString() : (hasSimulationData ? 'Time N/A' : '-')}
+                    </span>
+                </div>
+            )}
+
+            {/* Map Navigation Controls: Always visible, affect the map view itself */} 
+            <div 
+                className="controls map-controls" 
+                style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px'}}
+                onMouseDownCapture={(e) => e.stopPropagation()} // Stop propagation for mouse events
+                onTouchStartCapture={(e) => e.stopPropagation()} // Stop propagation for touch events
+            >
                 <button onClick={handleZoomIn} style={{ padding: '5px 10px', background: '#555', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Zoom In (+)</button>
                 <button onClick={handleZoomOut} style={{ padding: '5px 10px', background: '#555', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Zoom Out (-)</button>
                 <button onClick={handleResetView} style={{ padding: '5px 10px', background: '#555', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Reset View</button>
-                <span style={{marginLeft: 'auto', fontSize: '0.9em' }}>Step: {currentTimeIndex + 1} / {maxTimeIndex + 1}</span>
+                {hasSimulationData && (
+                    <span className="step-display" style={{marginLeft: 'auto', fontSize: '0.9em' }}>Step: {currentTimeIndex + 1} / {maxTimeIndex + 1}</span>
+                )}
             </div>
-            <div className="visualization-options-controls" style={{ marginBottom: '15px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '15px', color: '#eee'}}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px'}}>
-                    <input 
-                        type="checkbox" 
-                        id="showTrailsToggle"
-                        checked={showTrails}
-                        onChange={handleShowTrailsToggle}
-                        style={{cursor: 'pointer'}}
-                    />
-                    <label htmlFor="showTrailsToggle" style={{fontSize: '0.9em', cursor: 'pointer'}}>Show Trails</label>
-                    <input 
-                        type="number" 
-                        id="trailLengthInput" 
-                        value={trailLength}
-                        onChange={handleTrailLengthChange}
-                        min="0"
-                        disabled={!showTrails}
-                        style={{width: '60px', padding: '4px', background: '#444', color: '#eee', border: '1px solid #666', borderRadius: '3px', marginLeft:'5px'}}
-                    />
-                    <label htmlFor="trailLengthInput" style={{fontSize: '0.9em'}}>(Length)</label>
+
+            {/* Visualization Options: Conditionally render or disable based on hasSimulationData */} 
+            {hasSimulationData && (
+                <div 
+                    className="controls visualization-options-controls" 
+                    style={{ marginBottom: '15px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '15px', color: '#eee'}}
+                    onMouseDownCapture={(e) => e.stopPropagation()} // Stop propagation for mouse events
+                    onTouchStartCapture={(e) => e.stopPropagation()} // Stop propagation for touch events
+                >
+                    <div className="control-group" style={{ display: 'flex', alignItems: 'center', gap: '5px'}}>
+                        <input 
+                            type="checkbox" 
+                            id="showTrailsToggle"
+                            checked={showTrails}
+                            onChange={handleShowTrailsToggle}
+                            disabled={!hasSimulationData}
+                            style={{cursor: hasSimulationData ? 'pointer' : 'default'}}
+                        />
+                        <label htmlFor="showTrailsToggle" style={{fontSize: '0.9em', cursor: hasSimulationData ? 'pointer' : 'default'}}>Show Trails</label>
+                        <input 
+                            type="number" 
+                            id="trailLengthInput" 
+                            title="Number of trail segments"
+                            value={trailLength}
+                            onChange={handleTrailLengthChange}
+                            min="0"
+                            disabled={!hasSimulationData || !showTrails}
+                            className="trail-length-input"
+                            style={{width: '60px', padding: '4px', background: '#444', color: '#eee', border: '1px solid #666', borderRadius: '3px', marginLeft:'5px'}}
+                        />
+                        <label htmlFor="trailLengthInput" className="input-label" style={{fontSize: '0.9em'}}>(Length)</label>
+                    </div>
+                    <div className="control-group" style={{ display: 'flex', alignItems: 'center', gap: '5px'}}>
+                        <input 
+                            type="checkbox" 
+                            id="showActiveLinksToggle"
+                            checked={showActiveLinks}
+                            onChange={handleShowActiveLinksToggle}
+                            disabled={!hasSimulationData}
+                            style={{cursor: hasSimulationData ? 'pointer' : 'default'}}
+                        />
+                        <label htmlFor="showActiveLinksToggle" style={{fontSize: '0.9em', cursor: hasSimulationData ? 'pointer' : 'default'}}>Show Active Links</label>
+                    </div>
+                    <div className="control-group" style={{ display: 'flex', alignItems: 'center', gap: '5px'}}>
+                        <input 
+                            type="checkbox" 
+                            id="showPersistentSatelliteNamesToggle"
+                            checked={showPersistentSatelliteNames}
+                            onChange={handleShowPersistentSatelliteNamesToggle}
+                            disabled={!hasSimulationData}
+                            style={{cursor: hasSimulationData ? 'pointer' : 'default'}}
+                        />
+                        <label htmlFor="showPersistentSatelliteNamesToggle" style={{fontSize: '0.9em', cursor: hasSimulationData ? 'pointer' : 'default'}}>Show Satellite Names</label>
+                    </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px'}}>
-                    <input 
-                        type="checkbox" 
-                        id="showActiveLinksToggle"
-                        checked={showActiveLinks}
-                        onChange={handleShowActiveLinksToggle}
-                        style={{cursor: 'pointer'}}
-                    />
-                    <label htmlFor="showActiveLinksToggle" style={{fontSize: '0.9em', cursor: 'pointer'}}>Show Active Links</label>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '5px'}}>
-                    <input 
-                        type="checkbox" 
-                        id="showPersistentSatelliteNamesToggle"
-                        checked={showPersistentSatelliteNames}
-                        onChange={handleShowPersistentSatelliteNamesToggle}
-                        style={{cursor: 'pointer'}}
-                    />
-                    <label htmlFor="showPersistentSatelliteNamesToggle" style={{fontSize: '0.9em', cursor: 'pointer'}}>Show Satellite Names</label>
-                </div>
-            </div>
+            )}
+
             <ComposableMap
                 projection="geoMercator"
                 projectionConfig={{
-                    scale: 120, 
+                    scale: 120,
                 }}
+                className="composable-map-element" 
                 style={{ width: '100%', height: 'auto' }}
             >
                 <ZoomableGroup 
-                    center={position} 
                     zoom={zoom} 
+                    center={position} 
                     onMoveEnd={handleMoveEnd}
                     minZoom={0.5}
                     maxZoom={10}
@@ -264,11 +331,11 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
                                 <Geography
                                     key={geo.rsmKey}
                                     geography={geo}
-                                    fill="#403830"
-                                    stroke="#5A4D40"
+                                    fill="#403830"      
+                                    stroke="#5A4D40"    
                                     style={{
                                         default: { outline: 'none' },
-                                        hover: { outline: 'none' },
+                                        hover: { outline: 'none' }, 
                                         pressed: { outline: 'none' },
                                     }}
                                 />
@@ -276,127 +343,137 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({ results }) => {
                         }
                     </Geographies>
 
-                    {showActiveLinks && currentBeaconPosition && currentActiveIridiumIds && Array.from(currentActiveIridiumIds).map(iridiumId => {
-                        const iridiumSatData = iridiumTracks[iridiumId];
-                        if (!iridiumSatData || iridiumSatData.length <= currentTimeIndex) return null;
-                        const iridiumCurrentPosition = iridiumSatData[currentTimeIndex]?.positionGeodetic;
-                        if (!iridiumCurrentPosition) return null;
+                    {/* Render Satellite Trails, Links, Markers only if hasSimulationData */} 
+                    {hasSimulationData && beaconTrack && iridiumTracks && activeLinksLog && (
+                        <>
+                            {/* Render Satellite Trails */}
+                            {showTrails && Object.entries(allTracks).map(([satelliteId, track]) => {
+                                if (!Array.isArray(track) || track.length === 0) return null;
+                                const currentSatPosData = track[currentTimeIndex];
+                                if (!currentSatPosData) return null;
 
-                        return (
-                            <Line
-                                key={`link-${iridiumId}-${currentTimeIndex}`}
-                                from={[currentBeaconPosition.longitude, currentBeaconPosition.latitude]}
-                                to={[iridiumCurrentPosition.longitude, iridiumCurrentPosition.latitude]}
-                                stroke="#00ff00"
-                                strokeWidth={1.5}
-                                strokeOpacity={0.7}
-                            />
-                        );
-                    })}
+                                const isActive = satelliteId === 'BEACON' || currentActiveIridiumIds.has(satelliteId);
+                                const trailColorToUse = getTrackColor(satelliteId, isActive);
+                                
+                                const trailStartIndex = Math.max(0, currentTimeIndex - trailLength + 1);
+                                const trailData = track.slice(trailStartIndex, currentTimeIndex + 1)
+                                                    .map((p: SatellitePosition) => [p.positionGeodetic.longitude, p.positionGeodetic.latitude] as [number, number]);
+                                
+                                if (trailData.length < 2) return null;
 
-                    {Object.entries(allTracks).map(([id, track]) => {
-                        if (track.length < 1) return null;
-                        const currentSatPosition = track[currentTimeIndex]?.positionGeodetic;
-                        if (!currentSatPosition) return null;
-
-                        const isActiveLinkMember = id === 'BEACON' || currentActiveIridiumIds.has(id);
-                        
-                        const trailStartIndex = Math.max(0, currentTimeIndex - (showTrails ? trailLength : 0) + 1);
-                        const trailSegmentForLine = track.slice(trailStartIndex, currentTimeIndex + 1);
-
-                        let trailCoordinates: [number, number][] = [];
-                        if (showTrails && trailSegmentForLine.length >= 2 && trailLength > 0) {
-                            trailCoordinates = trailSegmentForLine.map(p => [p.positionGeodetic.longitude, p.positionGeodetic.latitude] as [number, number]);
-                        }
-
-                        return (
-                            <React.Fragment key={`frag-${id}-${currentTimeIndex}`}>
-                                {trailCoordinates.length >= 2 && (
+                                return (
                                     <Line
-                                        key={`track-segment-${id}`}
-                                        coordinates={trailCoordinates}
-                                        stroke={getTrackColor(id, isActiveLinkMember && id !== 'BEACON')}
-                                        strokeWidth={id === 'BEACON' ? 2 : 1.5}
+                                        key={`${satelliteId}-trail`}
+                                        coordinates={trailData}
+                                        stroke={trailColorToUse}
+                                        strokeWidth={satelliteId === 'BEACON' ? 2 : 1.5}
                                         strokeOpacity={0.6}
                                     />
-                                )}
-                                <Marker
-                                    key={`marker-${id}-${currentTimeIndex}`}
-                                    coordinates={[currentSatPosition.longitude, currentSatPosition.latitude]}
-                                    onClick={() => handleMarkerClick(id)}
-                                    onMouseEnter={(event) => {
-                                        setHoveredSatellite(id);
-                                        setHoveredSatPosition(currentSatPosition);
-                                        if (mapContainerRef.current) {
-                                            const rect = mapContainerRef.current.getBoundingClientRect();
-                                            setTooltipCoords({ 
-                                                x: event.clientX - rect.left,
-                                                y: event.clientY - rect.top 
-                                            });
-                                        }
-                                    }}
-                                    onMouseLeave={() => {
-                                        setHoveredSatellite(null);
-                                        setHoveredSatPosition(null);
-                                        setTooltipCoords(null);
-                                    }}
-                                >
-                                    <circle
-                                        r={id === 'BEACON' ? 5 : 4}
-                                        fill={getMarkerColor(id, isActiveLinkMember && id !== 'BEACON')}
-                                        stroke={isActiveLinkMember ? "#fff" : "#333"}
-                                        strokeWidth={isActiveLinkMember ? 1 : 0.5}
-                                        style={{ cursor: 'pointer' }}
-                                    />
-                                    {showPersistentSatelliteNames && (
-                                        <text
-                                            textAnchor="middle"
-                                            y={-8}
-                                            style={{ fill: 'white', fontSize: '10px', pointerEvents: 'none' }}
-                                        >
-                                            {id}
-                                        </text>
-                                    )}
-                                </Marker>
-                            </React.Fragment>
-                        );
-                    })}
+                                );
+                            })}
 
-                    {hoveredSatellite && hoveredSatPosition && tooltipCoords && (
-                        <Marker coordinates={[hoveredSatPosition.longitude, hoveredSatPosition.latitude]}>
-                            {/* This marker is just for positioning the foreignObject, content is inside */}
-                        </Marker>
+                            {/* Render Active Communication Links */}
+                            {showActiveLinks && currentBeaconPosition && Array.from(currentActiveIridiumIds).map(iridiumId => {
+                                const iridiumSatDataArray = iridiumTracks[iridiumId]; // iridiumTracks is known to be defined here
+                                if (!Array.isArray(iridiumSatDataArray) || iridiumSatDataArray.length <= currentTimeIndex) return null;
+                                const iridiumSatCurrent = iridiumSatDataArray[currentTimeIndex];
+                                if (!iridiumSatCurrent) return null;
+                                return (
+                                    <Line
+                                        key={`link-beacon-${iridiumId}`}
+                                        from={[currentBeaconPosition.longitude, currentBeaconPosition.latitude]}
+                                        to={[iridiumSatCurrent.positionGeodetic.longitude, iridiumSatCurrent.positionGeodetic.latitude]}
+                                        stroke="#00ff00"
+                                        strokeWidth={1.5}
+                                        strokeDasharray="4 2"
+                                        strokeOpacity={0.7}
+                                    />
+                                );
+                            })}
+
+                            {/* Render Satellite Markers */}
+                            {Object.entries(allTracks).map(([satelliteId, track]) => {
+                                if (!Array.isArray(track) || track.length === 0) return null;
+                                const currentSatPos = track[currentTimeIndex];
+                                if (!currentSatPos) return null;
+
+                                const isActiveLink = satelliteId !== 'BEACON' && currentActiveIridiumIds.has(satelliteId);
+                                const markerColorToUse = getMarkerColor(satelliteId, isActiveLink);
+
+                                return (
+                                    <Marker
+                                        key={`${satelliteId}-marker`}
+                                        coordinates={[currentSatPos.positionGeodetic.longitude, currentSatPos.positionGeodetic.latitude]}
+                                        onMouseEnter={(e) => handleSatelliteHover(satelliteId, currentSatPos.positionGeodetic, e)}
+                                        onMouseLeave={() => handleSatelliteHover(null, null)}
+                                        onClick={() => handleMarkerClick(satelliteId)}
+                                    >
+                                        <circle r={satelliteId === 'BEACON' ? 5 : 4} fill={markerColorToUse} stroke={isActiveLink ? "#fff" : "#333"} strokeWidth={isActiveLink ? 1 : 0.5} style={{ cursor: 'pointer' }} />
+                                        {showPersistentSatelliteNames && (
+                                            <text
+                                                textAnchor="middle"
+                                                y={-8}
+                                                style={{ fill: 'white', fontSize: '10px', pointerEvents: 'none' }}
+                                            >
+                                                {satelliteId.replace('IRIDIUM ', 'I-')}
+                                            </text>
+                                        )}
+                                    </Marker>
+                                );
+                            })}
+
+                            {/* Render Handshake Event Markers */}
+                            {handshakeLog && currentTimestamp !== null && handshakeLog.map((handshake, index) => {
+                                if (handshake.timestamp <= currentTimestamp) {
+                                    return (
+                                        <Marker
+                                            key={`handshake-${index}`}
+                                            coordinates={[handshake.beaconPosition.longitude, handshake.beaconPosition.latitude]}
+                                        >
+                                            <circle r={2.5} fill="#ffd700" opacity={0.6} stroke="#fff" strokeWidth={0.3} pointerEvents="none" /> 
+                                        </Marker>
+                                    );
+                                }
+                                return null;
+                            })}
+                        </>
                     )}
                 </ZoomableGroup>
             </ComposableMap>
             
-            {selectedSatelliteId && results && (
-                <SidePanel 
-                    selectedSatelliteId={selectedSatelliteId} 
-                    simulationResults={results}
-                    onClose={closeSidePanel}
-                    currentTimeIndex={currentTimeIndex}
-                />
-            )}
-            {hoveredSatellite && hoveredSatPosition && tooltipCoords && (
-                <div style={{
-                    position: 'absolute',
-                    left: `${tooltipCoords.x + 15}px`,
-                    top: `${tooltipCoords.y + 15}px`,
-                    background: 'rgba(0,0,0,0.75)',
-                    color: 'white',
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    pointerEvents: 'none',
-                    zIndex: 1000,
-                    transform: 'translateY(-100%)',
-                    whiteSpace: 'nowrap'
-                }}>
+            {/* Tooltip for Hovered Satellite - only if data and hover active */} 
+            {hasSimulationData && hoveredSatellite && hoveredSatPosition && tooltipCoords && (
+                <div 
+                    className="tooltip"
+                    style={{
+                        position: 'absolute',
+                        left: `${tooltipCoords.x + 15}px`,
+                        top: `${tooltipCoords.y + 15}px`,
+                        background: 'rgba(0,0,0,0.75)',
+                        color: 'white',
+                        padding: '8px 12px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        pointerEvents: 'none',
+                        zIndex: 1000,
+                        transform: 'translateY(-100%)',
+                        whiteSpace: 'nowrap'
+                    }}
+                >
                     <strong>{hoveredSatellite}</strong><br />
-                    Lat: {hoveredSatPosition.latitude.toFixed(2)}, Lon: {hoveredSatPosition.longitude.toFixed(2)}<br />
+                    Lat: {hoveredSatPosition.latitude.toFixed(2)}&deg;, Lon: {hoveredSatPosition.longitude.toFixed(2)}&deg;<br />
                     Alt: {hoveredSatPosition.altitude.toFixed(2)} km
                 </div>
+            )}
+
+            {/* Side Panel for Selected Satellite Details - only if data and selection active */} 
+            {hasSimulationData && selectedSatelliteId && results && (
+                <SidePanel 
+                    selectedSatelliteId={selectedSatelliteId} 
+                    simulationResults={results} 
+                    onClose={closeSidePanel} 
+                    currentTimeIndex={currentTimeIndex}
+                />
             )}
         </div>
     );

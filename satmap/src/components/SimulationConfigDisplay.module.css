@@ -1,0 +1,47 @@
+.configDisplayContainer {
+  background-color: #2f2f3b; /* Darker background for contrast */
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 25px;
+  margin-bottom: 20px;
+  color: #e0e0e0; /* Light text color */
+  border: 1px solid #44475a;
+}
+
+.configHeader {
+  color: #00ffff; /* Cyan accent for header - futuristic touch */
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.4em;
+  border-bottom: 1px solid #44475a;
+  padding-bottom: 10px;
+}
+
+.configGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+}
+
+.configSection h4 {
+  color: #ffa500; /* Orange accent for section titles */
+  margin-bottom: 12px;
+  font-size: 1.1em;
+}
+
+.configSection p,
+.configSection li {
+  margin-bottom: 8px;
+  font-size: 0.95em;
+  line-height: 1.6;
+}
+
+.configSection strong {
+  color: #bdbdbd; /* Slightly lighter for emphasis */
+  margin-right: 5px;
+}
+
+.configSection ul {
+  list-style-type: none;
+  padding-left: 0;
+} 

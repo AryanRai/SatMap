@@ -4,6 +4,7 @@ import OrbitInputForm from './components/OrbitInputForm';
 import { SimulationConfig, SimulationResults } from './types/orbit';
 import { runSimulation } from './simulationEngine';
 import SatVisualization from './components/SatVisualization';
+import SimulationConfigDisplay from './components/SimulationConfigDisplay';
 
 /**
  * Main application component for SatMap.
@@ -18,29 +19,30 @@ function App() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   // State for storing any error messages that occur during simulation.
   const [error, setError] = useState<string | null>(null);
+  // State to store the configuration of the currently displayed simulation results
+  const [currentConfigForDisplay, setCurrentConfigForDisplay] = useState<SimulationConfig | null>(null);
 
   /**
    * Handles the submission of the orbit parameters form.
    * It triggers the simulation engine with the provided configuration.
-   * Updates loading, results, and error states accordingly.
+   * Updates loading, results, error, and displayed config states accordingly.
    * @param config The SimulationConfig object from the OrbitInputForm.
    */
   const handleFormSubmit = async (config: SimulationConfig) => {
     setIsLoading(true);
     setSimulationResults(null);
     setError(null);
-    // console.log('Starting simulation with params:', config); // Developer log, can be removed for production
+    setCurrentConfigForDisplay(null); // Clear previous config display
 
     try {
-      // The simulation can be started with a specific Date object if needed for reproducible scenarios.
-      // Example: const startTime = new Date('2024-08-15T00:00:00.000Z');
-      // const results = await runSimulation(config, startTime);
-      const results = await runSimulation(config); // Uses current time by default
-      // console.log('Simulation successful:', results); // Developer log
+      const results = await runSimulation(config);
       setSimulationResults(results);
+      setCurrentConfigForDisplay(config); // Store the config that produced these results
     } catch (e: any) {
-      console.error('Simulation failed in App:', e); // Log the full error object for debugging
+      console.error('Simulation failed in App:', e);
       setError(e.message || 'An unexpected error occurred during simulation.');
+      // Optionally, clear config for display if simulation fails, or keep it to show what was attempted
+      // setCurrentConfigForDisplay(null); 
     }
     setIsLoading(false);
   };
@@ -48,26 +50,29 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>SatMap: Satellite Handshake Simulator</h1>
+        <h1>🛰️ SatMap: Satellite Handshake Simulator V2</h1>
       </header>
-      <main>
-        {/* Component for user input of orbit parameters and simulation settings */}
+      
+      {/* SatVisualization is now always rendered at the top */}
+      {/* It will need to handle a "blank" or "no data" state internally */}
+      <SatVisualization results={simulationResults} />
+
+      <main className="main-content-area">
+        {/* OrbitInputForm is now below the map visualization */}
         <OrbitInputForm onSubmit={handleFormSubmit} isLoading={isLoading} />
         
-        {/* Display a loading message while the simulation is running */}
-        {isLoading && <p className="status-message" style={{ marginTop: '20px' }}>Simulating... Please wait.</p>}
+        {isLoading && <p className="status-message loading-message">Simulating... Please wait.</p>}
         
-        {/* Display any errors that occurred during the simulation */}
         {error && (
-          <div className="simulation-error-container">
+          <div className="status-message error-container">
             <h3>Simulation Error:</h3>
-            <pre>{error}</pre> {/* Using <pre> to preserve error message formatting */}
+            <pre>{error}</pre>
           </div>
         )}
         
-        {/* Display the simulation results and visualization once available */}
+        {/* Display the simulation results and the config used, below the form */}
         {simulationResults && (
-          <>
+          <div className="results-and-config-section">
             <div className="simulation-results-container">
               <h2>Simulation Results:</h2>
               <p><strong>Total Handshakes:</strong> {simulationResults.totalHandshakes}</p>
@@ -75,16 +80,16 @@ function App() {
               <p><strong>Total Blackout Duration:</strong> {simulationResults.totalBlackoutDuration.toFixed(2)} seconds</p>
               <p><strong>Average Blackout Duration:</strong> {simulationResults.averageBlackoutDuration.toFixed(2)} seconds</p>
             </div>
-            {/* Render the satellite visualization component if track data is available */}
-            {simulationResults.beaconTrack && simulationResults.iridiumTracks && (
-              <SatVisualization results={simulationResults} />
-            )}
-          </>
+
+            {/* Display the configuration that was used for these results */}
+            <SimulationConfigDisplay config={currentConfigForDisplay} />
+          </div>
         )}
       </main>
+      
       <footer className="App-footer">
-        <p>SatMap: Orbital Simulation (UI: SatSimUI, Engine: SatCore)</p>
-        <p>Made w ❤️ Aryan Rai - SatMap V1.0 ~ Sydney, Aus</p>
+        <p>SatMap V2: Orbital Simulation (UI: SatSimUI, Engine: SatCore)</p>
+        <p>Made w ❤️ Aryan Rai - SatMap V2.0 ~ Sydney, Aus</p>
       </footer>
     </div>
   );
