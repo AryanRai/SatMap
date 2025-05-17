@@ -1,4 +1,4 @@
-# <img src="./public/icon.png" width="30" height="30" alt="SatMap Icon"> 🛰️ SatMap - Space Handshakes Hackathon Project (V1.0) 🚀
+# <img src="https://raw.githubusercontent.com/AryanRai/SatMap/main/satmap/public/icon.png" width="30" height="30" alt="SatMap Icon"> 🛰️ SatMap - Space Handshakes Hackathon Project (V1.0) 🚀
 
 **Simulating satellite communication links: Beacon 📡 Iridium**
 
@@ -42,7 +42,7 @@ The simulation process in SatMap follows these key steps:
 2.  **Beacon TLE Generation (`orbitCalculation.ts`):** Based on the user's parameters and the chosen epoch (simulation start time), SatMap dynamically calculates the necessary orbital elements and constructs valid TLE Line 1 and Line 2 strings for the Beacon satellite. This includes calculating mean motion, RAAN (derived for SSO, user-defined or default for Non-Polar), and ensuring correct formatting and checksums.
 3.  **Iridium TLE Fetching (`tleService.ts`):** TLE data for the selected Iridium constellation(s) (original and/or NEXT) is fetched from CelesTrak. A fallback mechanism provides dummy TLEs if the live fetch fails.
 4.  **Satellite Initialization (`orbitCalculation.ts`, `simulationEngine.ts`):** Both the dynamically generated Beacon TLE and the fetched Iridium TLEs are parsed into `SatRec` objects using `satellite.js`, making them ready for propagation.
-5.  **Time-Step Propagation (`simulationEngine.ts`, `orbitCalculation.ts`):** The simulation iterates through time. At each time step:
+5.  **Time-Time Propagation (`simulationEngine.ts`, `orbitCalculation.ts`):** The simulation iterates through time. At each time step:
     *   The ECI (Earth-Centered Inertial) position and velocity of the Beacon and all relevant Iridium satellites are calculated using the SGP4 propagator in `satellite.js`.
     *   Geodetic coordinates (latitude, longitude, altitude) are derived for visualization.
 6.  **Communication Link Detection (`simulationEngine.ts`, `geometry.ts`):**
@@ -61,23 +61,22 @@ The simulation process in SatMap follows these key steps:
 Here's a glimpse of SatMap in action:
 
 **Main Application View & Input Form:**
-![Main Page Layout](./public/MainPage.png)
+![Main Page Layout](https://raw.githubusercontent.com/AryanRai/SatMap/main/satmap/public/MainPage.png)
 
 **Configuring Simulation Parameters:**
-![Parameter Settings](./public/ParametersSettings.png)
+![Parameter Settings](https://raw.githubusercontent.com/AryanRai/SatMap/main/satmap/public/ParametersSettings.png)
 
 **Simulation Map Visualization:**
-![Basic Map View](./public/Map.png)
+![Basic Map View](https://raw.githubusercontent.com/AryanRai/SatMap/main/satmap/public/Map.png)
 
 **Map with Trails and Satellite Names:**
-![Map with Trails and Names](./public/MapWithTrailandNames.png)
+![Map with Trails and Names](https://raw.githubusercontent.com/AryanRai/SatMap/main/satmap/public/MapWithTrailandNames.png)
 
 **Simulation Results Summary:**
-![Simulation Results Display](./public/SimResults.png)
+![Simulation Results Display](https://raw.githubusercontent.com/AryanRai/SatMap/main/satmap/public/SimResults.png)
 
 **Detailed Satellite Information (Side Panel):**
-![Side Menu with Satellite Details](./public/SideMenu.png)
-
+![Side Menu with Satellite Details](https://raw.githubusercontent.com/AryanRai/SatMap/main/satmap/public/SideMenu.png)
 
 ---
 
