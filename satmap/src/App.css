@@ -192,6 +192,18 @@ button[type="submit"]:disabled {
   margin-top: auto; /* Pushes footer to the bottom */
 }
 
+.App-footer a.footer-link {
+  color: #ff4500; /* Martian orange/rust accent */
+  text-decoration: none;
+  transition: color 0.2s ease, text-decoration 0.2s ease;
+}
+
+.App-footer a.footer-link:hover,
+.App-footer a.footer-link:focus {
+  color: #ff6a33; /* Lighter shade on hover */
+  text-decoration: underline;
+}
+
 /* For a more futuristic font, you could import one from Google Fonts, e.g., "Orbitron" or "Exo 2" */
 /* @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap'); */
 /* body { font-family: 'Orbitron', sans-serif; } */

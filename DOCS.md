@@ -278,4 +278,4 @@ A panel (default disabled, can be enabled) to show simulation log messages and e
 *   **WebAssembly (WASM) for Performance:** Explore migrating computationally intensive parts of the simulation engine (e.g., propagation loops) to WebAssembly for potential performance gains in the browser.
 
 ---
-*This document is intended to provide a high-level technical overview. For precise implementation details, please refer to the source code.*
+*This document is intended to provide a high-level technical overview. For precise implementation details, please refer to the source code.* 

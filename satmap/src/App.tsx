@@ -491,7 +491,7 @@ function App() {
       
       <footer className="App-footer">
         <p>SatMap V3: Orbital Simulation (UI: SatSimUI, Engine: SatCore)</p>
-        <p>Made w ❤️ Aryan Rai <a href="https://aryanrai.github.io/">Web</a> | <a href="https://github.com/AryanRai/SatMap">GitHub</a></p>
+        <p>Made w ❤️ Aryan Rai <a href="https://aryanrai.github.io/" className="footer-link">Web</a> | <a href="https://github.com/AryanRai/SatMap" className="footer-link">GitHub</a></p>
         <p>~Sydney, Aus</p>
       </footer>
     </div>
