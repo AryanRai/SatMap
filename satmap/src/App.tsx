@@ -382,7 +382,7 @@ function App() {
         <button onClick={toggleVisualizationMode} className="panel-toggle-button view-mode-toggle-button">
           {visualizationMode === '2D' ? 'Switch to 3D View' : 'Switch to 2D View'}
         </button>
-        <h1>🛰️ SatMap: Satellite Handshake Simulator V2</h1>
+        <h1>🛰️ SatMap: Satellite Handshake Simulator V3.0</h1>
       </header>
       
       {/* Playback Controls - Placed above the main dashboard layout */}
@@ -491,7 +491,8 @@ function App() {
       
       <footer className="App-footer">
         <p>SatMap V2: Orbital Simulation (UI: SatSimUI, Engine: SatCore)</p>
-        <p>Made w ❤️ Aryan Rai - SatMap V2.0 ~ Sydney, Aus</p>
+        <p>Made w ❤️ Aryan Rai <a href="https://aryanrai.github.io/">Web</a> | <a href="https://github.com/AryanRai/SatMap">GitHub</a></p>
+        <p>SatMap V3.0 ~ Sydney, Aus</p>
       </footer>
     </div>
   );
