@@ -16,6 +16,8 @@ interface PlaybackControlsProps {
     onTimelapseToggle: () => void;
     isRealtimeActive: boolean;
     onRealtimeToggle: () => void;
+    selectedTimeRange: { start: number; end: number };
+    onTimeRangeChange: (newRange: { start: number; end: number }) => void;
 }
 
 const PlaybackControls: React.FC<PlaybackControlsProps> = ({
@@ -33,6 +35,8 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
     onTimelapseToggle,
     isRealtimeActive,
     onRealtimeToggle,
+    selectedTimeRange,
+    onTimeRangeChange,
 }) => {
 
     const formatDateTime = (timestamp: number | null): string => {
@@ -152,6 +156,52 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             >
                 {isRealtimeActive ? 'Realtime ON' : 'Realtime OFF'}
             </button>
+
+            {/* Time Range Selection Sliders */}
+            {hasSimulationData && maxTimeIndex > 0 && (
+                <div className="time-range-controls" style={{ display: 'flex', flexDirection: 'column', gap: '5px', flexGrow: 1, minWidth: '200px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85em' }}>
+                        <span>Range Start: {selectedTimeRange.start}</span>
+                        <span>End: {selectedTimeRange.end}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                        <label htmlFor="timeRangeStartSlider" style={{fontSize: '0.8em'}}>Start:</label>
+                        <input 
+                            type="range"
+                            id="timeRangeStartSlider"
+                            min="0"
+                            max={maxTimeIndex}
+                            value={selectedTimeRange.start}
+                            onChange={(e) => {
+                                const newStart = Number(e.target.value);
+                                if (newStart <= selectedTimeRange.end) {
+                                    onTimeRangeChange({ ...selectedTimeRange, start: newStart });
+                                }
+                            }}
+                            style={{ width: '100%' }}
+                            disabled={!hasSimulationData}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                        <label htmlFor="timeRangeEndSlider" style={{fontSize: '0.8em'}}>End:&nbsp;&nbsp;</label>
+                        <input 
+                            type="range"
+                            id="timeRangeEndSlider"
+                            min="0"
+                            max={maxTimeIndex}
+                            value={selectedTimeRange.end}
+                            onChange={(e) => {
+                                const newEnd = Number(e.target.value);
+                                if (newEnd >= selectedTimeRange.start) {
+                                    onTimeRangeChange({ ...selectedTimeRange, end: newEnd });
+                                }
+                            }}
+                            style={{ width: '100%' }}
+                            disabled={!hasSimulationData}
+                        />
+                    </div>
+                </div>
+            )}
 
             {hasSimulationData && (
                 <span className="step-display" style={{ fontSize: '0.9em' }}>Step: {currentTimeIndex + 1} / {maxTimeIndex + 1}</span>

@@ -83,6 +83,7 @@ interface SatVisualizationProps {
     showCommunicationCones: boolean;
     beaconFovDeg?: number;
     iridiumFovDeg?: number;
+    selectedTimeRange: { start: number; end: number };
 }
 
 /** CSS for beacon pulsing effect */
@@ -109,7 +110,8 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({
     setCurrentTimeIndex,
     showCommunicationCones,
     beaconFovDeg,
-    iridiumFovDeg
+    iridiumFovDeg,
+    selectedTimeRange,
 }) => {
     const { beaconTrack, iridiumTracks, activeLinksLog, handshakeLog } = results || {};
 
@@ -250,8 +252,33 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({
                     <div className="control-group" style={{ display: 'flex', alignItems: 'center', gap: '5px'}}>
                         <input type="checkbox" id="showTrailsToggle" checked={showTrails} onChange={handleShowTrailsToggle} disabled={!hasSimulationData} style={{cursor: hasSimulationData ? 'pointer' : 'default'}}/>
                         <label htmlFor="showTrailsToggle" style={{fontSize: '0.9em', cursor: hasSimulationData ? 'pointer' : 'default'}}>Show Trails</label>
-                        <input type="number" id="trailLengthInput" title="Number of trail segments" value={trailLength} onChange={handleTrailLengthChange} min="0" disabled={!hasSimulationData || !showTrails} className="trail-length-input" style={{width: '60px', padding: '4px', background: '#444', color: '#eee', border: '1px solid #666', borderRadius: '3px', marginLeft:'5px'}}/>
-                        <label htmlFor="trailLengthInput" className="input-label" style={{fontSize: '0.9em'}}>(Length)</label>
+                        <input 
+                            type="number" 
+                            id="trailLengthInput" 
+                            title="Number of trail segments (Overridden by time range selection if active)" 
+                            value={trailLength} 
+                            onChange={handleTrailLengthChange} 
+                            min="0" 
+                            disabled={!hasSimulationData || !showTrails || (selectedTimeRange && selectedTimeRange.end > selectedTimeRange.start)} 
+                            className="trail-length-input" 
+                            style={{
+                                width: '60px', 
+                                padding: '4px', 
+                                background: '#444', 
+                                color: '#eee', 
+                                border: '1px solid #666', 
+                                borderRadius: '3px', 
+                                marginLeft:'5px',
+                                opacity: (!hasSimulationData || !showTrails || (selectedTimeRange && selectedTimeRange.end > selectedTimeRange.start)) ? 0.5 : 1
+                            }}
+                        />
+                        <label 
+                            htmlFor="trailLengthInput" 
+                            className="input-label" 
+                            style={{
+                                fontSize: '0.9em',
+                                opacity: (!hasSimulationData || !showTrails || (selectedTimeRange && selectedTimeRange.end > selectedTimeRange.start)) ? 0.5 : 1
+                            }}>(Length)</label>
                     </div>
                     <div className="control-group" style={{ display: 'flex', alignItems: 'center', gap: '5px'}}>
                         <input type="checkbox" id="showActiveLinksToggle" checked={showActiveLinks} onChange={handleShowActiveLinksToggle} disabled={!hasSimulationData} style={{cursor: hasSimulationData ? 'pointer' : 'default'}}/>
@@ -296,8 +323,22 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({
                                     if (!currentSatPosData) return null;
                                     const isActive = satelliteId === 'BEACON' || currentActiveIridiumIds.has(satelliteId);
                                     const trailColorToUse = getTrackColor(satelliteId, isActive);
-                                    const trailStartIndex = Math.max(0, currentTimeIndex - trailLength + 1);
-                                    const trailData = track.slice(trailStartIndex, currentTimeIndex + 1).map((p: SatellitePosition) => [p.positionGeodetic.longitude, p.positionGeodetic.latitude] as [number, number]);
+                                    
+                                    let trailData: [number, number][] = [];
+                                    const isTimeRangeActive = selectedTimeRange && selectedTimeRange.end > selectedTimeRange.start;
+
+                                    if (isTimeRangeActive) {
+                                        const rangeStartIdx = Math.max(0, selectedTimeRange.start);
+                                        const rangeEndIdx = Math.min(track.length - 1, selectedTimeRange.end);
+                                        if (rangeStartIdx <= rangeEndIdx) {
+                                            trailData = track.slice(rangeStartIdx, rangeEndIdx + 1).map((p: SatellitePosition) => [p.positionGeodetic.longitude, p.positionGeodetic.latitude] as [number, number]);
+                                        }
+                                    } else {
+                                        // Original logic if no specific time range is active or if trailLength input is to be used
+                                        const trailStartIndex = Math.max(0, currentTimeIndex - trailLength + 1);
+                                        trailData = track.slice(trailStartIndex, currentTimeIndex + 1).map((p: SatellitePosition) => [p.positionGeodetic.longitude, p.positionGeodetic.latitude] as [number, number]);
+                                    }
+
                                     if (trailData.length < 2) return null;
                                     return <Line key={`${satelliteId}-trail`} coordinates={trailData} stroke={trailColorToUse} strokeWidth={satelliteId === 'BEACON' ? 2 : 1.5} strokeOpacity={0.6} />;
                                 })}
@@ -330,16 +371,31 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({
                                     );
                                 })}
 
-                                {showHandshakeMarkers && handshakeLog && currentTimestamp !== null && handshakeLog.map((handshake, index) => {
-                                    if (handshake.timestamp <= currentTimestamp) {
-                                        return (
-                                            <Marker key={`handshake-${index}`} coordinates={[handshake.beaconPosition.longitude, handshake.beaconPosition.latitude]}>
+                                {showHandshakeMarkers && handshakeLog && beaconTrack && beaconTrack.length > 0 && (() => {
+                                    const rangeStartTime = beaconTrack[selectedTimeRange.start]?.timestamp;
+                                    const rangeEndTime = beaconTrack[selectedTimeRange.end]?.timestamp;
+
+                                    if (rangeStartTime === undefined || rangeEndTime === undefined) {
+                                        // Fallback to original logic if range timestamps are not available (e.g. full range is 0-0 before sim)
+                                        return handshakeLog.map((handshake, index) => {
+                                            if (currentTimestamp !== null && handshake.timestamp <= currentTimestamp) {
+                                                return (
+                                                    <Marker key={`handshake-${index}`} coordinates={[handshake.beaconPosition.longitude, handshake.beaconPosition.latitude]}>
+                                                        <circle r={2.5} fill="#ffd700" opacity={0.6} stroke="#fff" strokeWidth={0.3} pointerEvents="none" /> 
+                                                    </Marker>
+                                                );
+                                            }
+                                            return null;
+                                        });
+                                    }
+                                    
+                                    return handshakeLog.filter(h => h.timestamp >= rangeStartTime && h.timestamp <= rangeEndTime)
+                                        .map((handshake, index) => (
+                                            <Marker key={`handshake-ranged-${index}`} coordinates={[handshake.beaconPosition.longitude, handshake.beaconPosition.latitude]}>
                                                 <circle r={2.5} fill="#ffd700" opacity={0.6} stroke="#fff" strokeWidth={0.3} pointerEvents="none" /> 
                                             </Marker>
-                                        );
-                                    }
-                                    return null;
-                                })}
+                                        ));
+                                })()}
                             </>
                         )}
                     </ZoomableGroup>

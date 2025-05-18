@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, ChangeEvent } from 'react';
 import './App.css';
 import OrbitInputForm from './components/OrbitInputForm';
 import { SimulationConfig, SimulationResults } from './types/orbit';
@@ -63,6 +63,9 @@ function App() {
   const [isTimelapseActive, setIsTimelapseActive] = useState<boolean>(false);
   const [isRealtimeActive, setIsRealtimeActive] = useState<boolean>(false);
 
+  // State for the time range selection for display features
+  const [selectedTimeRange, setSelectedTimeRange] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
+
   const BASE_ANIMATION_INTERVAL = 200; // ms
   const TIMELAPSE_MULTIPLIER = 16; // Timelapse runs 16x faster than base speed 1x
 
@@ -85,6 +88,9 @@ function App() {
     setPlaybackSpeedMultiplier(1); // Reset playback speed
     setIsTimelapseActive(false); // Reset timelapse mode
     setIsRealtimeActive(false); // Reset realtime mode
+    // Reset selectedTimeRange when new simulation starts
+    // It will be properly set once results.maxTimeIndex is available
+    setSelectedTimeRange({ start: 0, end: 0 }); 
 
     try {
       let simulationStartTime: Date | undefined = undefined;
@@ -100,6 +106,10 @@ function App() {
       const results = await runSimulation(config, simulationStartTime);
       setSimulationResults(results);
       setCurrentConfigForDisplay(config);
+      // Initialize selectedTimeRange based on new results
+      if (results && results.beaconTrack && results.beaconTrack.length > 0) {
+        setSelectedTimeRange({ start: 0, end: results.beaconTrack.length - 1 });
+      }
       console.info("[App] Simulation completed successfully.", results); // Example log
     } catch (e: any) {
       console.error('Simulation failed in App:', e);
@@ -269,6 +279,21 @@ function App() {
     });
   };
 
+  const handleTimeRangeChange = (newRange: { start: number; end: number }) => {
+    setSelectedTimeRange(newRange);
+    // If currentTimeIndex is outside the new range, consider adjusting it or pausing.
+    // For now, let's ensure currentTimeIndex is at least within the new start.
+    // A more sophisticated handling might be needed based on desired UX.
+    if (currentTimeIndex < newRange.start) {
+      setCurrentTimeIndex(newRange.start);
+    }
+    if (currentTimeIndex > newRange.end) {
+      // If current time is past the new end, set it to the new end.
+      // Or potentially pause playback if it was playing.
+      setCurrentTimeIndex(newRange.end);
+    }
+  };
+
   // Effect for animation progression
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
@@ -377,13 +402,15 @@ function App() {
           onTimelapseToggle={handleTimelapseToggle}
           isRealtimeActive={isRealtimeActive}
           onRealtimeToggle={handleRealtimeToggle}
+          selectedTimeRange={selectedTimeRange}
+          onTimeRangeChange={handleTimeRangeChange}
         />
       )}
 
       <div className={`dashboard-layout ${panelVisible ? 'panel-open' : ''}`}>
-        {simulationResults && (
+        {simulationResults && currentConfigForDisplay && (
           <div className="dashboard-column results-column">
-            <SimulationResultsDisplay results={simulationResults} />
+            <SimulationResultsDisplay results={simulationResults} simulationConfig={currentConfigForDisplay} />
           </div>
         )}
         {currentConfigForDisplay && (
@@ -402,6 +429,7 @@ function App() {
               showCommunicationCones={showCommunicationCones} // Pass down state
               beaconFovDeg={currentConfigForDisplay?.beaconFovDeg} // Pass down FOV
               iridiumFovDeg={currentConfigForDisplay?.iridiumFovDeg} // Pass down FOV
+              selectedTimeRange={selectedTimeRange} // Ensure this line is added
             />
           ) : (
             <SatVisualization3D
@@ -414,6 +442,7 @@ function App() {
               onSatelliteSelect={handleSatelliteSelect}
               showSatelliteTrails={showSatelliteTrails}
               showSatelliteLabels={showSatelliteLabels}
+              selectedTimeRange={selectedTimeRange} // Pass to 3D visualization
             />
           )}
         </div>

@@ -1,288 +1,281 @@
-# SatMap - Detailed Technical Documentation
+# SatMap - Detailed Technical Documentation (V3.0)
 
-This document provides a more in-depth look at the technical aspects, algorithms, and logic used in the SatMap project.
+This document provides an in-depth look at the technical aspects, algorithms, and logic used in the SatMap project, current as of **Version 3.0**.
 
 ## Table of Contents
 
-1.  [Project Core Objective](#project-core-objective)
-2.  [Key Technologies](#key-technologies)
-3.  [Orbital Mechanics & Satellite Propagation](#orbital-mechanics--satellite-propagation)
+1.  [Project Core Objective](#1-project-core-objective)
+2.  [Key Technologies (V3.0)](#2-key-technologies-v30)
+3.  [Orbital Mechanics & Satellite Propagation](#3-orbital-mechanics--satellite-propagation)
     *   [Satellite.js Library](#satellitejs-library)
     *   [Two-Line Element Sets (TLEs)](#two-line-element-sets-tles)
     *   [Beacon Satellite TLE Generation](#beacon-satellite-tle-generation)
     *   [Propagation Process](#propagation-process)
-4.  [Communication Simulation](#communication-simulation)
+4.  [Communication Simulation (V3.0 Logic)](#4-communication-simulation-v30-logic)
     *   [Iridium Constellation](#iridium-constellation)
-    *   [Beacon Antenna & Iridium Cones](#beacon-antenna--iridium-cones)
-    *   [Line-of-Sight & Cone Check](#line-of-sight--cone-check)
-5.  [Simulation Engine Logic](#simulation-engine-logic)
+    *   [Beacon and Iridium Antenna Cones & FOV](#beacon-and-iridium-antenna-cones--fov)
+    *   [Line-of-Sight (Earth Occultation) Check](#line-of-sight-earth-occultation-check)
+    *   [Cone Intersection Check](#cone-intersection-check)
+5.  [Simulation Engine Logic (`simulationEngine.ts`)](#5-simulation-engine-logic-simulationenginets)
     *   [Time Stepping](#time-stepping)
-    *   [Handshake Logic](#handshake-logic)
+    *   [Handshake Logic (V3.0 Definition)](#handshake-logic-v30-definition)
     *   [Blackout Period Calculation](#blackout-period-calculation)
     *   [Simulation Outputs for UI](#simulation-outputs-for-ui)
-6.  [User Interface and Visualization](#user-interface-and-visualization)
-    *   [`App.tsx`](#apptsx)
-    *   [`OrbitInputForm.tsx`](#orbitinputformtsx)
-    *   [`SatVisualization.tsx`](#satvisualizationtsx)
-    *   [`SidePanel.tsx`](#sidepaneltsx)
-7.  [Coordinate Systems](#coordinate-systems)
-8.  [Source Code Structure Highlights](#source-code-structure-highlights)
-9.  [Potential Future Enhancements](#potential-future-enhancements)
+6.  [User Interface and Visualization (SatSimUI - V3.0 Features)](#6-user-interface-and-visualization-satsimui---v30-features)
+    *   [`App.tsx` (Main Controller)](#apptsx-main-controller)
+    *   [`OrbitInputForm.tsx` (Simulation Configuration)](#orbitinputformtsx-simulation-configuration)
+    *   [`SimulationResultsDisplay.tsx` (Key Metrics Display)](#simulationresultsdisplaytsx-key-metrics-display)
+    *   [`SatVisualization.tsx` (2D Map View)](#satvisualizationtsx-2d-map-view)
+    *   [`SatVisualization3D.tsx` (3D Globe View - V3.0 Core)](#satvisualization3dtsx-3d-globe-view---v30-core)
+    *   [`SidePanel.tsx` & `CurrentConnectionsPanel.tsx` (Interactive Info Panels)](#sidepaneltsx--currentconnectionspaneltsx-interactive-info-panels)
+    *   [`ConsolePanel.tsx` (Log Output)](#consolepaneltsx-log-output)
+    *   [`PlaybackControls.tsx` (Simulation Playback & Time Range)](#playbackcontrolstsx-simulation-playback--time-range)
+7.  [Coordinate Systems](#7-coordinate-systems)
+8.  [Source Code Structure Highlights](#8-source-code-structure-highlights)
+9.  [Version History & Feature Evolution](#9-version-history--feature-evolution)
+    *   [Version 1.0 (Hackathon MVP)](#version-10-hackathon-mvp)
+    *   [Version 2.0 (RelV2.0) - Delivered Features (Enhanced 2D & UX)](#version-20-relv20---delivered-features-enhanced-2d--ux)
+    *   [Version 3.0 (RelV3.0) - Delivered Features (3D Visualization & Viewports)](#version-30-relv30---delivered-features-3d-visualization--viewports)
+10. [V3.x Future Enhancements & Long-Term Aspirations](#10-v3x-future-enhancements--long-term-aspirations)
+    *   [Immediate Next Steps (V3.x)](#immediate-next-steps-v3x)
+    *   [Long-Term Aspirations (Post-V3.x)](#long-term-aspirations-post-v3x)
 
 ---
 
 ## 1. Project Core Objective
 
-The primary goal is to simulate a custom "Beacon" satellite orbiting Earth and determine its communication handshakes with the Iridium satellite constellation over a configurable period. The simulation also calculates total communication blackout duration and statistics and visualizes the process on an interactive map.
+The primary goal is to simulate a custom "Beacon" satellite orbiting Earth and determine its communication handshakes with the Iridium satellite constellation over a configurable period. The simulation calculates total communication blackout duration, percentage of time in communication, logs detailed handshake events, and visualizes the process on interactive 2D and 3D maps. The project originated from the Space Handshakes Hackathon.
 
-## 2. Key Technologies
+## 2. Key Technologies (V3.0)
 
-*   **React:** For building the user interface.
-*   **TypeScript:** For static typing and improved code quality.
-*   **Satellite.js:** A JavaScript library for orbital mechanics calculations, primarily SGP4/SDP4 propagation from TLEs.
-*   **Axios:** For fetching Iridium TLE data from CelesTrak.
-*   **React Simple Maps:** For rendering the 2D map visualization.
-*   **Create React App:** As the foundation for the React project structure.
-*   **CSS Modules:** For component-scoped styling (e.g., `SidePanel`).
+*   **Core Logic (`SatCore`):** TypeScript, `satellite.js` (orbital mechanics).
+*   **Frontend (`SatSimUI`):** React, TypeScript.
+*   **2D Data Visualization:** `react-simple-maps`.
+*   **3D Data Visualization:** `three.js`, `@react-three/fiber`, `@react-three/drei`.
+*   **HTTP Requests:** `axios` (for fetching Iridium TLEs from CelesTrak).
+*   **Build Tool:** Create React App.
+*   **Styling:** CSS (global styles, component-specific CSS Modules), supporting a Dark Theme.
 
 ## 3. Orbital Mechanics & Satellite Propagation
 
 ### Satellite.js Library
 
-This project heavily relies on `satellite.js` to perform complex orbital calculations. Since official TypeScript type definitions (`@types/satellite.js`) are unavailable, a custom declaration file (`src/types/satellite.d.ts`) was created to provide basic typings for the functions and objects utilized from the library (e.g., `SatRec`, `twoline2satrec`, `propagate`, `eciToGeodetic`, `gstime`).
+Relies on `satellite.js` for SGP4/SDP4 propagation. Custom type definitions (`src/types/satellite.d.ts`) are used due to the lack of official `@types/satellite.js`.
 
 ### Two-Line Element Sets (TLEs)
 
-TLEs are a standard format for distributing orbital data of Earth-orbiting satellites. Each TLE consists of two lines of text that encode the orbital elements at a specific epoch.
-
-*   **Iridium TLEs:** Fetched from CelesTrak using the `tleService.ts`. *Note: CelesTrak implements rate limiting, so frequent fetches during development might lead to temporary IP blocks.*
-*   **Beacon TLE:** Generated dynamically based on user-defined orbital parameters.
+Standard format for orbital data.
+*   **Iridium TLEs:** Fetched from CelesTrak via `tleService.ts`. Users can select between "active", "next", or "all" Iridium datasets.
+*   **Beacon TLE:** Dynamically generated by `src/utils/orbitCalculation.ts` based on user inputs (orbit type, altitude, LSTN/inclination, etc.).
 
 ### Beacon Satellite TLE Generation
 
-Since the Beacon satellite's orbit is user-defined (Sun-Synchronous or Non-Polar with parameters like altitude, LSTDN/inclination), its TLE cannot be fetched. Instead, `src/utils/orbitCalculation.ts` implements logic to generate valid TLE strings:
-
-1.  **Epoch Calculation:** The simulation start time is used as the epoch. UTC year, day of the year, and fractional day are calculated.
-2.  **Mean Motion (n):** Calculated from the semi-major axis (Earth radius + altitude) using Kepler's third law:  
-    `n = sqrt(GM_Earth / a^3)` (radians/second), then converted to revolutions/day.
-3.  **Inclination (i):**
-    *   For Non-Polar orbits: Directly taken from user input.
-    *   For Sun-Synchronous Orbits (SSO): Calculated to achieve the required nodal precession rate. The formula involves the semi-major axis (a), eccentricity (e, assumed near-circular), Earth's J2 perturbation coefficient, Earth's equatorial radius (R_eq), and the mean motion (n).
-4.  **Right Ascension of the Ascending Node (RAAN or Omega):
-    *   For Non-Polar orbits: User input (optional, defaults to 0 degrees).
-    *   For SSO: Calculated based on the desired Local Solar Time at the Descending Node (LST_DN) and the Sun's Right Ascension (alpha_sun) at the epoch.
-5.  **Eccentricity (e):** Assumed to be near-circular (e.g., 0.0001) for simplicity in TLE generation for the Beacon.
-6.  **Argument of Perigee (omega) & Mean Anomaly (M):** Typically set to 0.0 for new, circular orbits.
-7.  **Other TLE Fields:** BSTAR drag term, ndot, nddot are set to zero. Satellite number is a dummy (e.g., 99999), international designator is generated based on epoch year.
-8.  **Checksum:** Calculated for each line.
-
-These elements are then formatted precisely into TLE line 1 and line 2 strings.
+Logic in `src/utils/orbitCalculation.ts` creates valid TLEs from user-defined parameters (SSO or Non-Polar LEO), calculating epoch, mean motion, inclination (direct or SSO-derived), RAAN (direct or LST_DN-derived), and assuming near-circular orbits (e=0.0001, argPerigee=0, meanAnomaly=0). Checksums are calculated.
 
 ### Propagation Process
 
-1.  **Initialization:** `satellite.twoline2satrec(tleLine1, tleLine2)` parses the TLEs into `SatRec` objects.
-2.  **Propagation:** At each time step, `satellite.propagate(satrec, date)` predicts the satellite's state vector (position and velocity) in Earth-Centered Inertial (ECI) coordinates.
-3.  **Coordinate Conversion:** The ECI position is then converted to Geodetic coordinates (latitude, longitude, altitude using WGS84 ellipsoid model) via `satellite.eciToGeodetic(eciPosition, gmst)`.
+1.  `satellite.twoline2satrec()` parses TLEs into `SatRec` objects.
+2.  `satellite.propagate(satrec, date)` predicts ECI position/velocity at each time step.
+3.  `satellite.eciToGeodetic(eciPosition, gmst)` converts ECI to Geodetic (lat, lon, alt) for WGS84.
 
-## 4. Communication Simulation
+## 4. Communication Simulation (V3.0 Logic)
 
 ### Iridium Constellation
 
-The simulation uses TLE data for the active Iridium constellation. Each Iridium satellite is modeled as a potential communication partner for the Beacon.
+Models each Iridium satellite as a potential communication partner.
 
-### Beacon Antenna & Iridium Cones
+### Beacon and Iridium Antenna Cones & FOV
 
-*   **Iridium Satellite Communication Cone:** Each Iridium satellite is assumed to have a communication payload with a conical field of view (FOV) directed towards nadir. The FOV half-angle is derived from the `iridiumFovDeg` parameter in the `SimulationConfig`.
-*   **Beacon Satellite Communication:** The Beacon is considered a point. It communicates if it falls within any Iridium satellite's communication cone. The Beacon's own antenna FOV (`beaconFovDeg` in `SimulationConfig`) is defined but not currently used in the geometric check for handshakes (i.e., Beacon is assumed omnidirectional for receiving or its FOV is much larger than Iridium's effective area at Beacon's position).
+Communication capabilities are modeled using conical Fields of View (FOV):
+*   **Iridium Satellite:** Nadir-pointing (downward) cone. FOV half-angle is user-configurable.
+*   **Beacon Satellite:** Uses horizon-aligned antenna cones for bi-directional mode. FOV half-angle is also user-configurable.
+*   **Geometric Functions:** `createIridiumCone` (for nadir) and `createHorizonAlignedAntennaCones` (for horizon-scanning) in `src/utils/geometry.ts` define these cones.
 
-### Line-of-Sight & Cone Check
+### Line-of-Sight (Earth Occultation) Check
 
-The function `isPointInCone(pointEci, cone)` in `src/utils/geometry.ts` determines if the Beacon (`pointEci`) is within a given Iridium `cone` by calculating the angle between the vector from the cone apex (Iridium) to the Beacon and the cone's axis vector.
+The `isLineOfSightClear(point1Eci, point2Eci)` function in `src/utils/geometry.ts` checks if the direct path between two points (e.g., Beacon and an Iridium satellite) is obstructed by the Earth. This is crucial for realistic link assessment.
 
-## 5. Simulation Engine Logic
+### Cone Intersection Check
 
-Located in `src/simulationEngine.ts` (`runSimulation` function).
+The `isPointInCone(pointEci, cone)` function in `src/utils/geometry.ts` determines if a target satellite (its ECI position) falls within the defined communication cone of another satellite.
 
-The `runSimulation` function now accepts a `SimulationConfig` object, which includes:
-*   `beaconParams`: Orbital parameters for the Beacon.
-*   `iridiumFovDeg`: Iridium antenna Field of View in degrees.
-*   `beaconFovDeg`: Beacon antenna Field of View in degrees.
-*   `simulationDurationHours`: Total simulation duration.
-*   `simulationTimeStepSec`: Time step for propagation.
+## 5. Simulation Engine Logic (`simulationEngine.ts`)
+
+The `runSimulation` function in `src/simulationEngine.ts` orchestrates the simulation based on a `SimulationConfig` object (Beacon params, FOVs, duration, time step, handshake mode, etc.).
 
 ### Time Stepping
 
-The simulation runs for the configured duration with the specified time step. In each step:
+Iterates through the simulation duration at user-defined time steps. In each step: Beacon and Iridium satellites are propagated, and communication checks are performed.
 
-1.  The current time is incremented.
-2.  The Beacon satellite and all Iridium satellites are propagated.
-3.  Communication checks are performed.
+### Handshake Logic (V3.0 Definition)
 
-### Handshake Logic
+**Definition of a Handshake:** A handshake is counted as one continuous communication session initiated with a specific Iridium satellite. The simulation counts the number of such unique, new sessions over the simulation period.
 
-A handshake is defined as the moment a *new* communication link is established between the Beacon and a specific Iridium satellite.
-
-*   `previousConnectedIridiumSatIds`: A `Set` storing IDs of Iridium satellites the Beacon was connected to in the *previous* time step.
-*   `currentConnectedIridiumSatIds`: A `Set` storing IDs of Iridium satellites the Beacon is connected to in the *current* time step (i.e., Beacon is within their communication cone).
-*   **Condition:** A handshake with `IridiumX` is registered if `IridiumX` is in `currentConnectedIridiumSatIds` BUT was NOT in `previousConnectedIridiumSatIds`.
-*   **Output:** Individual handshake events (timestamp, satellite IDs, positions) are stored in the `handshakeLog` array within `SimulationResults`.
+*   **One-Way Mode ("Beacon Directly Overhead"):** Communication occurs if the Beacon is within an Iridium satellite's nadir-pointing cone AND there is clear Line of Sight (LoS).
+*   **Bi-Directional Mode ("Mutual Horizon Scanning"):** Communication occurs if the Beacon is within an Iridium satellite's horizon-aligned cone, AND the Iridium satellite is within the Beacon's horizon-aligned cone, AND there is clear LoS between them.
+*   **Tracking:** `previousConnectedIridiumSatIds` (Set of Iridium IDs connected in the prior timestep) and `currentConnectedIridiumSatIdsThisStep` (Set for the current timestep) are used.
+*   **New Handshake Condition:** A handshake with `IridiumX` is registered if `IridiumX` is in `currentConnectedIridiumSatIdsThisStep` BUT was NOT in `previousConnectedIridiumSatIds`.
+*   The simulation logs each handshake event with details (timestamp, satellites involved).
 
 ### Blackout Period Calculation
 
-A blackout occurs when the Beacon is not in communication with *any* Iridium satellite. The logic for calculating start, end, and duration of these periods remains the same, stored in `blackoutPeriods`.
+A blackout occurs when the Beacon is not in communication (LoS + cone conditions not met) with *any* Iridium satellite. The logic calculates start, end, and duration for each blackout period, stored in `blackoutPeriods`.
 
 ### Simulation Outputs for UI
 
-The `SimulationResults` object returned by `runSimulation` now includes:
+The `SimulationResults` object (returned by `runSimulation`) includes:
 *   `totalHandshakes`: Total count of new link establishments.
-*   `handshakeLog: Handshake[]`: An array logging each individual handshake event with timestamps and participant details.
-*   `activeLinksLog: Array<Set<string>>`: An array where each element corresponds to a time step in the simulation. Each element is a `Set` containing the IDs of Iridium satellites actively communicating with the Beacon at that specific time step. This is crucial for visualizing active links dynamically.
-*   `blackoutPeriods: BlackoutPeriod[]`: List of blackout events.
-*   `totalBlackoutDuration`, `averageBlackoutDuration`, `numberOfBlackouts`: Statistics for blackouts.
-*   `beaconTrack: SatellitePosition[]`, `iridiumTracks: { [satelliteId: string]: SatellitePosition[] }`: Full ground track data for visualization.
+*   `handshakeLog: HandshakeEvent[]`: Detailed log of each handshake (timestamp, Beacon pos, Iridium sat, Iridium pos, etc.).
+*   `activeLinksLog: Array<Set<string>>`: An array where each index represents a time step. The `Set` at each index contains IDs of Iridium satellites actively linked to the Beacon at that moment.
+*   `blackoutPeriods: BlackoutPeriod[]`: List of blackout events with start, end, duration.
+*   `totalBlackoutDuration`: Total duration (in seconds) the Beacon is not in communication.
+*   `averageBlackoutDuration`: Average length of a single blackout period (in seconds).
+*   `numberOfBlackouts`: Total count of distinct blackout periods.
+*   `beaconTrack: SatellitePosition[]`, `iridiumTracks: { [satelliteId: string]: SatellitePosition[] }`: Full positional data for visualization.
+*   *(Note: The percentage of time in communication is derived in the UI (`SimulationResultsDisplay.tsx`) using `totalBlackoutDuration` and the `simulationDurationHours` from the input `SimulationConfig`.)*
 
-## 6. User Interface and Visualization
+## 6. User Interface and Visualization (SatSimUI - V3.0 Features)
 
-The application features an interactive UI allowing users to define simulation parameters and view results on a 2D map.
+### `App.tsx` (Main Controller)
 
-### `App.tsx`
+Manages overall application state (input parameters, simulation results, UI states like loading/error, selected time range, playback states). Triggers simulations, passes data to visualization components (`SatVisualization.tsx`, `SatVisualization3D.tsx`), `SidePanel.tsx`, and `SimulationResultsDisplay.tsx`.
 
-The main React component. It:
-*   Manages the overall application state (input parameters, simulation results, loading/error states).
-*   Renders the `OrbitInputForm` to collect user settings.
-*   Triggers the simulation via `simulationEngine.ts` upon form submission.
-*   Passes the `SimulationResults` to the `SatVisualization` component.
-*   Displays basic textual simulation results (total handshakes, blackout info).
+### `OrbitInputForm.tsx` (Simulation Configuration)
 
-### `OrbitInputForm.tsx`
+Form for users to input:
+*   **Beacon Orbit:** Type (SSO/Non-Polar), Altitude, LSTDN (SSO) or Inclination & RAAN (Non-Polar).
+*   **Simulation Timing:** Start Date/Time (UTC, optional), Duration (hours), Time Step (seconds).
+*   **Communication:** Handshake Mode (One-Way/Bi-Directional - Bi-Directional default), Iridium FOV, Beacon FOV.
+*   **Iridium Dataset:** Selection (Active, Next, All).
+*   Styled for dark theme consistency (e.g., `#simulationStartTime` input).
 
-A React component that provides a form for users to input:
-*   **Beacon Orbit Parameters:** Type (Sun-Synchronous or Non-Polar), Altitude, and LSTDN (for SSO) or Inclination & RAAN (for Non-Polar).
-*   **Simulation Configuration:**
-    *   Iridium Antenna FOV (degrees).
-    *   Beacon Antenna FOV (degrees).
-    *   Simulation Duration (hours).
-    *   Simulation Time Step (seconds).
+### `SimulationResultsDisplay.tsx` (Key Metrics Display)
 
-### `SatVisualization.tsx`
+This component, part of the main dashboard, presents key summary statistics from the completed simulation. It receives the `SimulationResults` and the `SimulationConfig` used for the run. Displayed metrics include:
+*   Total Handshakes.
+*   Percentage of Time in Communication (calculated from total blackout duration and simulation duration).
+*   Number of Blackouts.
+*   Total Blackout Duration (seconds).
+*   Average Blackout Duration (seconds).
 
-This component is responsible for rendering the interactive 2D map visualization of the simulation using `react-simple-maps`.
+### `SatVisualization.tsx` (2D Map View)
 
-*   **Map Display:** Renders a Mercator projected world map with graticules (latitude and longitude lines).
-*   **Satellite Tracks:** Displays ground tracks for the Beacon and all simulated Iridium satellites. Trail lengths are configurable via UI controls, and trails can be toggled on/off.
-*   **Satellite Markers:** Shows current positions of all satellites as markers on the map.
-*   **Playback Controls:**
-    *   Play, Pause/Restart, Reset buttons.
-    *   A time slider to scrub through the simulation timeline.
-    *   The animation updates satellite marker positions and progressively draws their trails based on the `currentTimeIndex`.
-    *   Displays the current simulation timestamp and step count.
-*   **Interactivity & Information:**
-    *   **Zoom/Pan:** The map supports zooming and panning. UI buttons for Zoom In (+), Zoom Out (-), and Reset View are provided.
-    *   **Hover Tooltips:** Hovering over a satellite marker displays a tooltip with its ID, current Latitude, Longitude, and Altitude.
-    *   **Click for Details:** Clicking on an Iridium satellite marker opens the `SidePanel`.
-*   **Dynamic Styling & Links:**
-    *   Actively communicating Iridium satellites (those with a current link to the Beacon, derived from `activeLinksLog`) have their markers and tracks highlighted (e.g., with a green color).
-    *   A line is drawn on the map between the Beacon and any Iridium satellite it is actively communicating with at the current time step.
-*   **Theme:** Uses a dark theme with Martian-inspired orange accents. Map geography colors are styled to match.
+*   Renders interactive 2D map using `react-simple-maps`.
+*   Displays satellite ground tracks (Beacon, Iridium), handshake markers (small circles/dots at Beacon's location), and active communication links (lines).
+*   **Time Range Filtering:** Visual elements (trails, markers) are filtered based on the `selectedTimeRange` from `PlaybackControls`. The `trailLength` input is disabled if a time range is active.
+*   **Defaults:** Trails are OFF by default. Map can be panned/zoomed. Satellite names/icons displayed.
 
-### `SidePanel.tsx`
+### `SatVisualization3D.tsx` (3D Globe View - V3.0 Core)
 
-A React component styled using CSS Modules (`SidePanel.module.css`).
-*   **Activation:** Appears when an Iridium satellite marker is clicked on the map.
-*   **Content:** Displays the selected Iridium satellite's ID and a detailed history of its handshake events with the Beacon (timestamp, and positions of both satellites at the time of handshake), using data from `simulationResults.handshakeLog`.
-*   Includes a close button.
+*   Renders interactive 3D globe using `three.js`, `@react-three/fiber`, `@react-three/drei`.
+*   Displays Earth globe, satellite positions (markers), orbital paths (trails), active communication links (lines between satellites), communication cones, and Iridium nadir cone Earth footprints (circles).
+*   **Time Range Filtering:** Trails and handshake markers (small gold spheres at Beacon's handshake location) are filtered by `selectedTimeRange`.
+*   **Toggleable Features:** Satellite trails (default OFF), communication cones (default ON), satellite labels.
+*   **Camera Controls:** Standard orbit controls; labels are larger for readability.
+*   **Default View:** Shows a blank Earth globe before simulation.
+
+### `SidePanel.tsx` & `CurrentConnectionsPanel.tsx` (Interactive Info Panels)
+
+*   **`CurrentConnectionsPanel.tsx`:** Displays a list of currently active Beacon-Iridium links, updating with simulation playback. Clicking an Iridium satellite opens its details in `SidePanel.tsx`.
+*   **`SidePanel.tsx`:** Draggable/minimizable panel. Shows detailed info for a selected satellite (Beacon or Iridium) or details of a selected historical handshake event. Includes an "Active Link Status" section for ongoing connections and historical handshake log.
+
+### `ConsolePanel.tsx` (Log Output)
+
+A panel (default disabled, can be enabled) to show simulation log messages and event details. Useful for debugging or deeper insight.
+
+### `PlaybackControls.tsx` (Simulation Playback & Time Range)
+
+*   **Standard Controls:** Play/Pause, Reset simulation view.
+*   **Speed Control:** Selectable playback speed (1x, 2x, 4x, 8x).
+*   **Timelapse Mode:** Fast playback (e.g., 16x speed).
+*   **Realtime Mode:** Advances simulation one time step per `simulationTimeStepSec` (e.g., if step is 60s, advances 1 sim minute per 1 real second).
+*   **Time Range Selector:** Two `<input type="range">` sliders for Start and End of a time window. Filters data shown in both 2D and 3D views (trails, handshake markers).
+*   **Timestamp Display:** Shows the current simulation timestamp, formatted.
 
 ## 7. Coordinate Systems
 
-*   **ECI (Earth-Centered Inertial):** Primary system for orbital propagation. Origin at Earth's center, axes fixed relative to distant stars.
-*   **Geodetic:** Latitude, longitude, altitude (WGS84). Used for map display.
+*   **ECI (Earth-Centered Inertial):** Used for orbital propagation and core geometric calculations (cone checks, LoS). `satellite.js` outputs positions in ECI (km).
+*   **Geodetic (LLA):** Latitude, Longitude, Altitude. Used for displaying positions on maps (2D and 3D). Conversion from ECI via `satellite.eciToGeodetic`.
+*   **Screen Coordinates:** For UI element positioning and interaction on the 2D map.
 
 ## 8. Source Code Structure Highlights
 
-*   `satmap/src/types/`: TypeScript interfaces and enums (`orbit.ts`, `satellite.d.ts`).
-*   `satmap/src/constants/`: Physical constants (`physicalConstants.ts`).
-*   `satmap/src/utils/`: Core calculation utilities (`orbitCalculation.ts`, `geometry.ts`).
-*   `satmap/src/services/`: External data services (`tleService.ts`).
-*   `satmap/src/simulationEngine.ts`: Main simulation logic.
-*   `satmap/src/components/`: React UI components (`App.tsx`, `OrbitInputForm.tsx`, `SatVisualization.tsx`, `SidePanel.tsx`). Includes CSS module files like `SidePanel.module.css`.
-*   `satmap/src/App.css`: Global styles and theme.
+*   `src/components/`: React components for UI elements.
+*   `src/services/`: Services like `tleService.ts` for fetching external data.
+*   `src/simulation/`: Core simulation logic, including `simulationEngine.ts`.
+*   `src/utils/`: Utility functions for orbital math (`orbitCalculation.ts`), geometry (`geometry.ts`), TLE generation, etc.
+*   `src/types/`: TypeScript type definitions, including custom `satellite.d.ts`.
+*   `src/constants/`: Application-wide constants (e.g., physical constants, default settings).
 
-## 9. Potential Future Enhancements
+## 9. Version History & Feature Evolution
 
-*   **UI/UX Polish:**
-    *   Further refine styling of `SidePanel` and overall application CSS.
-    *   Improve responsiveness for different screen sizes.
-    *   More dynamic display of simulation summary data (e.g., handshakes/blackouts updating during animation).
-    *   Visual cues for events (e.g., flashing marker on handshake initiation).
-    *   Allow users to toggle visibility of specific satellite tracks or types.
-    *   Option to change animation speed.
-*   **TLE Data Management:**
-    *   Implement client-side caching for TLE data (e.g., using `localStorage`) to reduce CelesTrak API calls and handle rate-limiting.
-    *   Expand the built-in dummy TLE set for more robust offline/fallback operation.
-*   **Simulation Fidelity:**
-    *   More sophisticated antenna patterns.
-    *   Consideration of atmospheric drag and other perturbations.
-*   **Testing:**
-    *   Comprehensive unit tests for utility functions.
-    *   Integration tests for simulation and UI flows.
-*   **State Management:** Evaluate more advanced state management (React Context, Zustand) if prop drilling becomes cumbersome.
-*   **Build/Deployment:** Address any persistent TypeScript module resolution issues if they impact the build process. Plan for deployment.
+### Version 1.0 (Hackathon MVP)
+
+*   Basic Beacon TLE generation (SSO only, limited parameterization).
+*   Core SGP4 propagation for Beacon and fetched Iridium TLEs.
+*   Simple 2D map visualization using `react-simple-maps`.
+*   Rudimentary one-way handshake logic (Beacon in Iridium nadir cone, no LoS check).
+*   Basic UI for inputs and results display.
+*   Focus on demonstrating the core concept for the Space Handshakes Hackathon.
+
+### Version 2.0 (RelV2.0) - Delivered Features (Enhanced 2D & UX)
+
+*   **UI/UX Overhaul:** Modernized dark theme, improved layout, interactive panels (`SidePanel`, `CurrentConnectionsPanel`, `ConsolePanel`).
+*   **Advanced 2D Simulation Controls:** Playback speed, timelapse, realtime mode, reset.
+*   **Time Range Selector (2D):** Filtering of 2D map trails and markers.
+*   **Refined Simulation Configuration:** Choice of Iridium datasets, bi-directional handshake as default option, user-defined simulation start time & timezone awareness, explicit FOV inputs.
+*   **Core Logic Enhancements:**
+    *   **Line of Sight (Earth Occultation):** Integrated `isLineOfSightClear` into simulation.
+    *   **Bi-Directional Handshake Logic:** Implemented mutual horizon scanning cone checks for Beacon and Iridium.
+    *   **Generalized Cone Creation:** `createHorizonAlignedAntennaCones` for flexible use.
+    *   **Improved Handshake Logging:** More detailed `HandshakeEvent` structure.
+*   **Dynamic TLE Generation:** Support for Non-Polar LEO Beacon orbits in addition to SSO.
+*   **Code Quality:** Increased TypeScript adoption and code organization.
+
+### Version 3.0 (RelV3.0) - Delivered Features (3D Visualization & Viewports)
+
+*   **Core 3D Visualization (`SatVisualization3D.tsx`):**
+    *   Switchable 3D map mode with an interactive Earth globe (`three.js`, R3F).
+    *   3D rendering of satellites (markers), orbital paths (trails), and active communication links (lines).
+    *   Visualization of communication cones (Beacon horizon-aligned, Iridium nadir) in 3D space (toggleable, default ON).
+    *   Projection of Iridium nadir cone footprints onto the 3D Earth's surface.
+    *   Consistent Earth textures between 2D and 3D views.
+    *   Default blank 3D Earth globe view pre-simulation.
+*   **Feature Parity & Enhancements in 3D View:**
+    *   Full playback suite (play/pause, speed, timelapse, realtime) functional in 3D.
+    *   Time Range Selector fully operational for 3D trails and handshake markers (small gold spheres).
+    *   3D satellite trails (toggleable, default OFF).
+    *   Enlarged 3D satellite labels for readability.
+*   **Specialized Viewport Controls (Enhanced Camera Focus):**
+    *   Functionality allowing camera to focus/zoom on selected satellites (Beacon or Iridium) to better inspect cones and relative positions in the 3D scene (achieved via camera manipulation rather than distinct viewport components).
+*   **Configuration & Defaults for V3.0:**
+    *   User-defined simulation start time input robustly styled and functional.
+    *   Bi-directional handshake mode remains the default.
+    *   Trails OFF by default in 3D view, FOV cones ON by default in 3D view.
+    *   Lowered default Beacon altitude (e.g., 550km) in `OrbitInputForm.tsx`.
+
+## 10. V3.x Future Enhancements & Long-Term Aspirations
+
+### Immediate Next Steps (V3.x)
+
+*   **UI/UX Refinements:** Explore subtle **Glassmorphic UI elements** for panels/modals to enhance the modern aesthetic, maintaining overall dark theme consistency.
+*   **Introduction/How-To-Use Guide:** Develop an integrated "Getting Started" modal or a brief tutorial overlay explaining key UI elements and workflow for new users.
+*   **Performance & Technical Improvements:** Implement a **TLE Cache Toggle** in the UI. This would allow the application to store and reuse fetched Iridium TLE data (e.g., in `localStorage` or `IndexedDB`) for a certain period, reducing API calls to CelesTrak, especially useful for developers or users running similar simulations frequently.
+
+### Long-Term Aspirations (Post-V3.x)
+
+*   **Public API Development:** Design and implement a public API (e.g., RESTful or GraphQL) allowing external applications or scripts to programmatically run simulations and retrieve results.
+*   **Advanced 3D Satellite Models:** Allow users to import or select more detailed 3D models for satellites (e.g., `.gltf`, `.fbx`) instead of the current generic markers/spheres.
+*   **Full-Screen Mode:** Implement a toggle for full-screen display of the 2D/3D visualization area.
+*   **Basic Orbit Insertion/Maneuver Simulation:** Introduce capabilities to simulate simplified orbital insertion phases or basic propulsive maneuvers for the Beacon satellite.
+*   **Enhanced Simulation Logic:**
+    *   More sophisticated antenna pattern modeling (e.g., using gain patterns instead of simple cones).
+    *   Basic modeling of atmospheric signal attenuation or interference.
+    *   Calculation and display of Doppler shift for active links.
+*   **Data Export Capabilities:** Provide options for users to export simulation results (handshake logs, blackout data, satellite tracks) in common formats like CSV, JSON, or KML.
+*   **User Accounts & Saved Configurations:** Allow users to create accounts to save, load, and manage their preferred simulation configurations and possibly past results.
+*   **Enhanced Earth Visualizations (3D):** Higher resolution Earth textures, dynamic weather layers (clouds), city lights on the night side of the globe.
+*   **WebAssembly (WASM) for Performance:** Explore migrating computationally intensive parts of the simulation engine (e.g., propagation loops) to WebAssembly for potential performance gains in the browser.
 
 ---
-*This document is intended to provide a high-level technical overview. For precise implementation details, please refer to the source code.* 
-
----
-
-## V2 Roadmap
-
-- [x]  map blank as main page focus add the details when click simulate keep this on top and preloaded without any satellite data and then simulation resuluts below that and config below that
-- [x]  ui refresh use more animations if u can and more futuristic starwars style tesla spacex clean apple style but futuristic
-    - [x]  make the styling a bit consistent with the orange black and grey i dont like the current blue and yellow color u used for the sim resulted and current simulation results used and there is some dark blue background. if u use different colors use some subtle colors to keep it in line with the current ones
-    - [x]  make beacon pulsate and make that a toggle, for attentention grabbing
-    - [x]  make the yellow trail behind the beacon also disablable
-    
-- [x]  make a side menu togglable such that it always displays (if toggled) or if u go to left side of window it always displays current connections and details at that moment
-    - [x]  the hide show button comes over the panel and looks a bit weird becuase its on some text and also the scrollbar is light theme but the main is dark, can we have it dark
-    - [x]  change the background color of the panel to a grey tone rather than dark blue it seems not onsistent with the style also the Beacon Satellite Orbit Parameters and Beacon Satellite Orbit Parameters has a blue background change that to a tone of grey
-    - [x]  do a creative scollbar
-    - [x]  show hide status panel-toggle-button is still above the panel in z axis looks weird
-    - [x]  SimulationConfigDisplay_configDisplayContainer, SimulationResultsDisplay_resultsDisplayContainer, main-content-area needs to be in a grey background tone
-    - [x]  add animation to open panel and change button text to something like hover left/open active comms panel
-    - [x]  clicking any satellite inside the panel opens details relating to panel, we already have the details from clicking on the map it can open it
-    - [x]  add 2 sections like currently connected, prevously connected and never connected
-    - [x]  Previosly connected seems blank is that supposed to be like the, previously connected are sats that at somepoint of time were connected and now arent
-    - [x]  make the details menu that shows details regarding a satellite movable by dragging it aroud set its z index above most else so i can drag it to anywhere i want on the screen since it comes on top of the actual map
-    - [x]  make the sat details panel minimizable
-    - [x]  when invoked from map, keep the sat details close to the map when invoked from the side panel keep it closed to that
-    - [x]  the formatting of how data is presented inside sat details panel can be impoved right now its just poorly formatted text
-    - [x]  since the text inside the sat details panel is copyable/draggable, dragging the panel posses a challenge maybe make a handle
-    - [x]  also make a copy paste mode and have it disabled by default so i can copy data from it
-    - [x]  fix styling for copy paste mode and minimize button on the sat details menu
-    - [x]  when invoked sat details from the panel it is over the simulation results so possible to move it elsewhere?
-    - [x]  also when i open or close the panel it automatically opens the details menu for some reason
-    - [ ]  console is open by default it should be closed
-    
-       
-    
-- [x]  make a console on right side same as the hover panel that shows raw console data
-- [ ]  introduce Glassmorphic ui elements apple or openai sora types like keep the theme colors the same
-- [ ]  Realtime mode that simulates in realtime
-- [ ]  Implement cashe toggle to retain previous data so i dont spam the iridium api
-- [ ]  running sim please wait replace this with an animation
-- [ ]  intro and how to use
-- [ ]  some artifacts on the map when i click it
-- [ ]  default trails on map off and console disabled
-- [ ]  simulation start time formatting
-- [ ]  add docs and readme for v2 comments v2 includes everything until 3d maps and map types
-
-*Note: V2 encompasses all features and improvements up to, but not including, the 3D map visualizations and advanced map type functionalities (which are part of V3).* 
-
-## V3 Roadmap
-
-- [x]  new mode to 3d map of earth and sats, keep the 2d map too
-- [x]  on actual map have a toggle to show communication cone to show fov of beacon and iridium on map
-- [x]  by default have the 3d blank earth in 3d view instead of just displaying a a msg saying run simulation to see earth
-- [ ]  timelapse mode
-- [x]  all features from 2d view to be implemented in 3d
-- [ ]  alignment is 2d map texture alinged with 3d map texture
-- [x]  make date time manually setable 
+*This document is intended to provide a high-level technical overview. For precise implementation details, please refer to the source code.*

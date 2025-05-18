@@ -35,6 +35,7 @@ interface SatVisualization3DProps {
     onSatelliteSelect?: (id: string) => void;
     showSatelliteTrails?: boolean;
     showSatelliteLabels?: boolean;
+    selectedTimeRange: { start: number; end: number };
 }
 
 const SatVisualization3D: React.FC<SatVisualization3DProps> = ({
@@ -47,6 +48,7 @@ const SatVisualization3D: React.FC<SatVisualization3DProps> = ({
     onSatelliteSelect,
     showSatelliteTrails = true,
     showSatelliteLabels = true,
+    selectedTimeRange,
 }) => {
     const { beaconTrack, iridiumTracks, handshakeLog, activeLinksLog } = results || {};
     const hasSimulationData = !!(results && beaconTrack && beaconTrack.length > 0 && iridiumTracks);
@@ -90,20 +92,30 @@ const SatVisualization3D: React.FC<SatVisualization3DProps> = ({
 
     // Memoize trail points for performance
     const beaconTrailPoints = useMemo(() => {
-        if (!hasSimulationData || !beaconTrack || beaconTrack.length < 2) return null;
-        return beaconTrack.map(p => eciToThreeJS(p.positionEci, SATELLITE_ORBIT_SCALE_FACTOR));
-    }, [hasSimulationData, beaconTrack]);
+        if (!hasSimulationData || !beaconTrack || beaconTrack.length < 1) return null;
+        const CappedStart = Math.max(0, selectedTimeRange.start);
+        const CappedEnd = Math.min(beaconTrack.length -1 , selectedTimeRange.end);
+        if (CappedStart > CappedEnd) return null; // Empty range after capping
+        const slicedTrack = beaconTrack.slice(CappedStart, CappedEnd + 1);
+        if (slicedTrack.length < 2) return null; // Not enough points for a line
+        return slicedTrack.map(p => eciToThreeJS(p.positionEci, SATELLITE_ORBIT_SCALE_FACTOR));
+    }, [hasSimulationData, beaconTrack, selectedTimeRange]);
     
     const iridiumTrailPointsMap = useMemo(() => {
         if (!hasSimulationData || !iridiumTracks) return {};
         const map: Record<string, THREE.Vector3[]> = {};
         Object.entries(iridiumTracks).forEach(([id, track]) => {
-            if (track.length >= 2) {
-                map[id] = track.map(p => eciToThreeJS(p.positionEci, SATELLITE_ORBIT_SCALE_FACTOR));
+            if (track.length < 1) return;
+            const CappedStart = Math.max(0, selectedTimeRange.start);
+            const CappedEnd = Math.min(track.length - 1, selectedTimeRange.end);
+            if (CappedStart > CappedEnd) return; // Empty range
+            const slicedTrack = track.slice(CappedStart, CappedEnd + 1);
+            if (slicedTrack.length >= 2) {
+                map[id] = slicedTrack.map(p => eciToThreeJS(p.positionEci, SATELLITE_ORBIT_SCALE_FACTOR));
             }
         });
         return map;
-    }, [hasSimulationData, iridiumTracks]);
+    }, [hasSimulationData, iridiumTracks, selectedTimeRange]);
 
     const currentActiveIridiumSatIds = useMemo(() => {
         return (hasSimulationData && activeLinksLog && activeLinksLog[currentTimeIndex]) 
@@ -150,6 +162,19 @@ const SatVisualization3D: React.FC<SatVisualization3DProps> = ({
                         {showSatelliteLabels && <Text position={[sat.position3D.x, sat.position3D.y + LABEL_OFFSET_Y, sat.position3D.z]} fontSize={LABEL_FONT_SIZE} color="lightblue" anchorX="center" anchorY="middle">{sat.id.replace('IRIDIUM ', 'I-')}</Text>}
                     </group>
                 ))}
+
+                {/* Filtered Handshake Markers based on Time Range */}
+                {hasSimulationData && showSatelliteLabels && handshakeLog && beaconTrack && beaconTrack.length > 0 && (() => {
+                    const rangeStartTime = beaconTrack[selectedTimeRange.start]?.timestamp;
+                    const rangeEndTime = beaconTrack[selectedTimeRange.end]?.timestamp;
+
+                    if (rangeStartTime === undefined || rangeEndTime === undefined) return null;
+
+                    return handshakeLog.filter(h => h.timestamp >= rangeStartTime && h.timestamp <= rangeEndTime)
+                        .map((handshake, index) => (
+                            <MarkerProxy key={`handshake-${handshake.timestamp}-${index}`} position={handshake.beaconPosition} />
+                        ));
+                })()}
 
                 {/* Communication Cones and Footprints */}
                 {hasSimulationData && showCommunicationCones && (
@@ -329,5 +354,25 @@ const IridiumFootprintCircleRevised: React.FC<IridiumFootprintCircleProps> = Rea
     if (!footprintData) return null;
     return <mesh ref={footprintMeshRef} geometry={footprintData.geometry} position={footprintData.position} material={material} />;
 });
+
+// Simple Marker for Handshakes (replace MarkerProxy call if that's not a defined pattern)
+const MarkerProxy: React.FC<{ position: GeodeticPosition }> = ({ position }) => {
+    // Convert Geodetic (lat, lon, alt) to a 3D position on the Earth's surface for the marker
+    // This is a simplified approach; actual altitude of handshake might be slightly above surface.
+    // For visual purposes, placing on surface is often fine.
+    const cartesianPosition = new THREE.Vector3();
+    const phi = THREE.MathUtils.degToRad(90 - position.latitude);
+    const theta = THREE.MathUtils.degToRad(position.longitude);
+    const visualRadius = EARTH_RADIUS_KM_3D + 0.02; // Slightly above surface
+
+    cartesianPosition.setFromSphericalCoords(visualRadius, phi, theta);
+
+    return (
+        <mesh position={cartesianPosition}>
+            <sphereGeometry args={[0.03, 16, 16]} />
+            <meshStandardMaterial color="gold" emissive="gold" emissiveIntensity={1} />
+        </mesh>
+    );
+};
 
 export default SatVisualization3D; 
