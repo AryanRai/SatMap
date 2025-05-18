@@ -157,4 +157,14 @@
 .noHandshakes {
   color: #aaa;
   font-style: italic;
+}
+
+/* Styles for active/inactive link status */
+.activeLink {
+  color: #4caf50; /* Green */
+  font-weight: bold;
+}
+
+.inactiveLink {
+  color: #f44336; /* Red */
 } 

@@ -23,7 +23,7 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
     // State for selecting the Beacon satellite's orbit type.
     const [orbitType, setOrbitType] = useState<OrbitType>(OrbitType.SunSynchronous);
     // State for the Beacon's altitude in kilometers.
-    const [altitude, setAltitude] = useState<string>('700');
+    const [altitude, setAltitude] = useState<string>('550');
     // State for the Beacon's orbital inclination in degrees (used for Non-Polar orbits).
     const [inclination, setInclination] = useState<string>('98'); // Default for NonPolar if switched, also a common SSO value.
     // State for the Local Solar Time at Descending Node in hours (used for Sun-Synchronous orbits).
@@ -40,7 +40,7 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
     const [selectedDatasets, setSelectedDatasets] = useState<IridiumDatasetType[]>(["IRIDIUM", "IRIDIUM-NEXT"]);
 
     // State for handshake mode
-    const [handshakeMode, setHandshakeMode] = useState<'one-way' | 'bi-directional'>('one-way');
+    const [handshakeMode, setHandshakeMode] = useState<'one-way' | 'bi-directional'>('bi-directional');
 
     /**
      * Handles changes to the orbit type selection.
@@ -219,7 +219,15 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
                     id="simulationStartTime"
                     value={simulationStartTime}
                     onChange={(e) => setSimulationStartTime(e.target.value)}
-                    // className="themed-input" // Could add a specific class if more styling is needed
+                    style={{
+                        padding: '8px',
+                        borderRadius: '4px',
+                        border: '1px solid #555',
+                        backgroundColor: '#333',
+                        color: '#E0E0E0',
+                        fontFamily: 'inherit',
+                        colorScheme: 'dark', // Helps with date picker appearance in dark themes
+                    }}
                 />
             </div>
 
@@ -280,8 +288,8 @@ const OrbitInputForm: React.FC<OrbitInputFormProps> = ({ onSubmit, isLoading }) 
                     value={handshakeMode} 
                     onChange={(e) => setHandshakeMode(e.target.value as 'one-way' | 'bi-directional')}
                 >
-                    <option value="one-way">One-Way (Iridium to Beacon)</option>
-                    <option value="bi-directional">Bi-Directional</option>
+                    <option value="one-way">One-Way (Iridium Nadir Cone - Beacon Directly Overhead)</option>
+                    <option value="bi-directional">Bi-Directional (Mutual Horizon Scanning)</option>
                 </select>
             </div>
 

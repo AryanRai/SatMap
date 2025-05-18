@@ -16,7 +16,6 @@ const geoUrl = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 const INITIAL_ZOOM = 1;
 const INITIAL_MAP_POSITION: [number, number] = [0, 20];
 const DEFAULT_TRAIL_SEGMENT_LENGTH = 10;
-const ANIMATION_SPEED_MS = 200;
 const CONE_VISUAL_LENGTH_KM = 2500; // Visual length for cone axis lines
 
 // --- Projection Types and Settings (Re-added) ---
@@ -151,7 +150,10 @@ const SatVisualization: React.FC<SatVisualizationProps> = ({
         }
     }, [results, hasSimulationData, selectedProjectionSetting.defaultZoom, selectedProjectionSetting.defaultCenter]);
 
-    const handleMapReset = () => { setZoom(selectedProjectionSetting.defaultZoom); setPosition(selectedProjectionSetting.defaultCenter); };
+    const handleMapReset = () => { 
+        setZoom(selectedProjectionSetting.defaultZoom); 
+        setPosition(selectedProjectionSetting.defaultCenter); // Ensure position is also reset
+    };
 
     const handleMarkerClick = (satelliteId: string, event: React.MouseEvent) => {
         if (!hasSimulationData) return;

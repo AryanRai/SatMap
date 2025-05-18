@@ -48,18 +48,23 @@ function App() {
   const [isConsoleFeatureEnabled, setIsConsoleFeatureEnabled] = useState<boolean>(false); // Default to disabled
 
   // State for communication cone visibility
-  const [showCommunicationCones, setShowCommunicationCones] = useState<boolean>(false);
+  const [showCommunicationCones, setShowCommunicationCones] = useState<boolean>(true);
 
   // State for visualization mode (2D or 3D)
   const [visualizationMode, setVisualizationMode] = useState<'2D' | '3D'>('2D');
 
   // 3D specific toggles
-  const [showSatelliteTrails, setShowSatelliteTrails] = useState<boolean>(true);
+  const [showSatelliteTrails, setShowSatelliteTrails] = useState<boolean>(false);
   const [showSatelliteLabels, setShowSatelliteLabels] = useState<boolean>(true);
 
   // State for playback
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const ANIMATION_SPEED_MS = 200; // Can be made configurable later
+  const [playbackSpeedMultiplier, setPlaybackSpeedMultiplier] = useState<number>(1);
+  const [isTimelapseActive, setIsTimelapseActive] = useState<boolean>(false);
+  const [isRealtimeActive, setIsRealtimeActive] = useState<boolean>(false);
+
+  const BASE_ANIMATION_INTERVAL = 200; // ms
+  const TIMELAPSE_MULTIPLIER = 16; // Timelapse runs 16x faster than base speed 1x
 
   /**
    * Handles the submission of the orbit parameters form.
@@ -77,6 +82,9 @@ function App() {
     setSelectedSatelliteId(null); // Clear selected satellite on new simulation
     setSidePanelInitialPosition(null); // Clear panel position on new simulation
     setIsPlaying(false); // Stop playback on new simulation
+    setPlaybackSpeedMultiplier(1); // Reset playback speed
+    setIsTimelapseActive(false); // Reset timelapse mode
+    setIsRealtimeActive(false); // Reset realtime mode
 
     try {
       let simulationStartTime: Date | undefined = undefined;
@@ -226,23 +234,74 @@ function App() {
     setCurrentTimeIndex(0);
   };
   
+  const handlePlaybackSpeedChange = (speed: number) => {
+    setPlaybackSpeedMultiplier(speed);
+    if (isTimelapseActive) {
+        setIsTimelapseActive(false);
+    }
+    if (isRealtimeActive) {
+        setIsRealtimeActive(false);
+    }
+  };
+
+  const handleTimelapseToggle = () => {
+    setIsTimelapseActive(prev => {
+        const newTimelapseState = !prev;
+        if (newTimelapseState) {
+            setIsPlaying(true); // Automatically play when timelapse is enabled
+            setIsRealtimeActive(false); // Turn off realtime if timelapse is enabled
+        } else {
+            // Optional: revert to a default speed or last selected speed if needed
+        }
+        return newTimelapseState;
+    });
+  };
+
+  const handleRealtimeToggle = () => {
+    setIsRealtimeActive(prev => {
+        const newRealtimeState = !prev;
+        if (newRealtimeState) {
+            setIsPlaying(true); // Automatically play when realtime is enabled
+            setIsTimelapseActive(false); // Turn off timelapse if realtime is enabled
+            // Playback speed multiplier is ignored in realtime mode
+        }
+        return newRealtimeState;
+    });
+  };
+
   // Effect for animation progression
   useEffect(() => {
     let intervalId: NodeJS.Timeout | null = null;
     if (isPlaying && hasSimulationRun && maxTimeIndex > 0) {
+        let intervalDuration;
+        if (isRealtimeActive) {
+            if (currentConfigForDisplay && currentConfigForDisplay.simulationTimeStepSec > 0) {
+                intervalDuration = currentConfigForDisplay.simulationTimeStepSec * 1000; // Use simulationTimeStepSec from config
+            } else {
+                console.warn("Realtime mode active but simulationTimeStepSec from config is unavailable. Defaulting to 1s/step.");
+                intervalDuration = 1000;
+            }
+        } else if (isTimelapseActive) {
+            intervalDuration = BASE_ANIMATION_INTERVAL / TIMELAPSE_MULTIPLIER;
+        } else {
+            intervalDuration = BASE_ANIMATION_INTERVAL / playbackSpeedMultiplier;
+        }
+        
         intervalId = setInterval(() => {
             setCurrentTimeIndex(prevIndex => {
                 const nextIndex = prevIndex + 1;
                 if (nextIndex > maxTimeIndex) {
                     setIsPlaying(false); // Stop when end is reached
+                    if (isTimelapseActive) setIsTimelapseActive(false); // Turn off timelapse if it was on
+                    // Realtime mode does not auto-disable, it just stops playing.
                     return maxTimeIndex;
                 }
                 return nextIndex;
             });
-        }, ANIMATION_SPEED_MS);
+        }, intervalDuration);
     }
     return () => { if (intervalId) clearInterval(intervalId); };
-}, [isPlaying, hasSimulationRun, maxTimeIndex, setCurrentTimeIndex]);
+}, [isPlaying, hasSimulationRun, maxTimeIndex, setCurrentTimeIndex, playbackSpeedMultiplier, isTimelapseActive, isRealtimeActive, currentConfigForDisplay]);
 
   return (
     <div className="App">
@@ -312,6 +371,12 @@ function App() {
           onResetTime={handleResetTime}
           currentTimestamp={currentTimestamp}
           hasSimulationData={hasSimulationRun}
+          playbackSpeedMultiplier={playbackSpeedMultiplier}
+          onPlaybackSpeedChange={handlePlaybackSpeedChange}
+          isTimelapseActive={isTimelapseActive}
+          onTimelapseToggle={handleTimelapseToggle}
+          isRealtimeActive={isRealtimeActive}
+          onRealtimeToggle={handleRealtimeToggle}
         />
       )}
 

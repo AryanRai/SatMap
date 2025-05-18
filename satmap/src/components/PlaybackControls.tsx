@@ -10,6 +10,12 @@ interface PlaybackControlsProps {
     onResetTime: () => void;
     currentTimestamp: number | null;
     hasSimulationData: boolean;
+    playbackSpeedMultiplier: number;
+    onPlaybackSpeedChange: (speed: number) => void;
+    isTimelapseActive: boolean;
+    onTimelapseToggle: () => void;
+    isRealtimeActive: boolean;
+    onRealtimeToggle: () => void;
 }
 
 const PlaybackControls: React.FC<PlaybackControlsProps> = ({
@@ -21,6 +27,12 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
     onResetTime,
     currentTimestamp,
     hasSimulationData,
+    playbackSpeedMultiplier,
+    onPlaybackSpeedChange,
+    isTimelapseActive,
+    onTimelapseToggle,
+    isRealtimeActive,
+    onRealtimeToggle,
 }) => {
 
     const formatDateTime = (timestamp: number | null): string => {
@@ -89,6 +101,58 @@ const PlaybackControls: React.FC<PlaybackControlsProps> = ({
             >
                 {formatDateTime(currentTimestamp)}
             </span>
+
+            {/* Playback Speed Control */}
+            <div className="playback-speed-control" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <label htmlFor="playbackSpeedSelect" style={{ fontSize: '0.9em', marginRight: '3px', display: 'flex', alignItems: 'center', paddingTop: '2px' }}>Speed:</label>
+                <select 
+                    id="playbackSpeedSelect"
+                    value={playbackSpeedMultiplier}
+                    onChange={(e) => onPlaybackSpeedChange(Number(e.target.value))}
+                    disabled={!hasSimulationData || isTimelapseActive || isRealtimeActive} // Disable if timelapse or realtime is active
+                    style={{ padding: '5px 8px', background: '#555', color: 'white', border: '1px solid #666', borderRadius: '4px', cursor: (hasSimulationData && !isTimelapseActive && !isRealtimeActive) ? 'pointer' : 'default' }}
+                >
+                    <option value={1}>1x</option>
+                    <option value={2}>2x</option>
+                    <option value={4}>4x</option>
+                    <option value={8}>8x</option>
+                </select>
+            </div>
+
+            {/* Timelapse Toggle Button */}
+            <button 
+                onClick={onTimelapseToggle}
+                disabled={!hasSimulationData}
+                style={{
+                    padding: '8px 12px', 
+                    background: isTimelapseActive ? '#007bff' : '#555', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '4px', 
+                    cursor: hasSimulationData ? 'pointer' : 'default',
+                    minWidth: '100px' // Ensure consistent width
+                }}
+            >
+                {isTimelapseActive ? 'Timelapse ON' : 'Timelapse OFF'}
+            </button>
+
+            {/* Realtime Toggle Button */}
+            <button 
+                onClick={onRealtimeToggle}
+                disabled={!hasSimulationData}
+                style={{
+                    padding: '8px 12px', 
+                    background: isRealtimeActive ? '#28a745' : '#555', // Green when active
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '4px', 
+                    cursor: hasSimulationData ? 'pointer' : 'default',
+                    minWidth: '100px' // Ensure consistent width
+                }}
+            >
+                {isRealtimeActive ? 'Realtime ON' : 'Realtime OFF'}
+            </button>
+
             {hasSimulationData && (
                 <span className="step-display" style={{ fontSize: '0.9em' }}>Step: {currentTimeIndex + 1} / {maxTimeIndex + 1}</span>
             )}

@@ -51,6 +51,13 @@ const SidePanel: React.FC<SidePanelProps> = ({
     ? allHandshakes 
     : allHandshakes.filter(h => h.iridiumSatelliteId === selectedSatelliteId);
 
+  // Determine if the selected Iridium satellite is actively connected at the current time index
+  let isActiveLink = false;
+  if (selectedSatelliteId !== 'BEACON' && simulationResults.activeLinksLog && simulationResults.activeLinksLog[currentTimeIndex]) {
+    const activeConnectionsAtCurrentTime = simulationResults.activeLinksLog[currentTimeIndex];
+    isActiveLink = activeConnectionsAtCurrentTime.has(selectedSatelliteId);
+  }
+
   const handleMouseDownOnHeader = (e: React.MouseEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('button')) return;
     if (!panelRef.current || allowTextSelection) return; // Don't drag if text selection is on
@@ -220,6 +227,16 @@ const SidePanel: React.FC<SidePanelProps> = ({
               </ul>
             </div>
           ) : <p>Position data unavailable at current time step.</p>}
+
+          {/* Display Active Link Status for Iridium Satellites */}
+          {selectedSatelliteId !== 'BEACON' && (
+            <div className={styles.section}>
+              <h5 className={styles.sectionTitle}>Link Status:</h5>
+              <p className={isActiveLink ? styles.activeLink : styles.inactiveLink}>
+                {isActiveLink ? 'Actively connected to Beacon' : 'Not currently connected to Beacon'}
+              </p>
+            </div>
+          )}
 
           <div className={styles.section}>
             <h5 className={styles.sectionTitle}>Handshakes ({satelliteHandshakes.length}):</h5>

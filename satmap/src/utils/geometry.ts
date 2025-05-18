@@ -1,4 +1,5 @@
 import { CartesianVector } from '../types/orbit';
+import { RADIUS_EARTH_KM } from '../constants/physicalConstants';
 
 // --- Vector Math Utilities (SatCore module) ---
 // Standard 3D vector operations used in geometric calculations.
@@ -134,85 +135,150 @@ export const createIridiumCone = (
 };
 
 /**
- * Creates the two horizon-aligned communication cones for the Beacon satellite.
+ * Creates two horizon-aligned communication/scanning cones for a satellite.
  * Antennas are assumed to point along the velocity and anti-velocity vectors
- * when projected onto the Beacon's local horizontal plane.
- * This function is currently NOT used by the main simulation handshake logic, as the hackathon
- * allows a simplification: "as long as the beacon is within the communication FOV of the iridium satellite, they can perform the handshake".
- * However, it's available if more detailed bi-directional cone checks are needed in the future.
+ * when projected onto the satellite's local horizontal plane.
  * 
- * @param beaconEciPos The ECI position of the Beacon satellite (km).
- * @param beaconEciVelocity The ECI velocity vector of the Beacon satellite (km/s).
- * @param beaconHalfAngleRadians The half-angle of the Beacon's antenna cone in radians.
- * @param beaconId Optional ID for the Beacon satellite.
+ * @param satelliteEciPos The ECI position of the satellite (km).
+ * @param satelliteEciVelocity The ECI velocity vector of the satellite (km/s).
+ * @param halfAngleRadians The half-angle of the satellite's antenna cone in radians.
+ * @param entityIdPrefix Optional ID prefix for the satellite/entity (e.g., "Beacon", "Iridium-Scan").
  * @returns An array containing two GeometricCone objects, or an empty array if inputs are invalid.
  */
-export const createBeaconAntennaCones = (
-    beaconEciPos: CartesianVector,
-    beaconEciVelocity: CartesianVector,
-    beaconHalfAngleRadians: number,
-    beaconId?: string
+export const createHorizonAlignedAntennaCones = (
+    satelliteEciPos: CartesianVector,
+    satelliteEciVelocity: CartesianVector,
+    halfAngleRadians: number,
+    entityIdPrefix?: string
 ): GeometricCone[] => {
-    // TODO: (Long Term) Bi-directional handshake logic is a future enhancement and might require more complex Beacon antenna modeling.
-    // This implementation creates two horizon-aligned cones based on velocity.
-
-    const zenithVector = normalize(beaconEciPos);
-    if (magnitude(zenithVector) < 1e-9) { // Check if beaconEciPos itself was zero
-        console.error("[SatCore/Geometry] Beacon ECI position is zero, cannot determine zenith for antenna cones.");
+    const zenithVector = normalize(satelliteEciPos);
+    if (magnitude(zenithVector) < 1e-9) { 
+        console.error(`[SatCore/Geometry] ECI position for ${entityIdPrefix || 'entity'} is zero, cannot determine zenith for horizon-aligned antenna cones.`);
         return [];
     }
 
-    // Project velocity onto the local horizontal plane: v_horiz = v - (v . zenith) * zenith
     const velocityComponentParallelToZenith = scale(
         zenithVector,
-        dotProduct(beaconEciVelocity, zenithVector)
+        dotProduct(satelliteEciVelocity, zenithVector)
     );
-    let horizontalVelocityComponent = subtract(beaconEciVelocity, velocityComponentParallelToZenith);
+    let horizontalVelocityComponent = subtract(satelliteEciVelocity, velocityComponentParallelToZenith);
     
     const magHorizontalVelocity = magnitude(horizontalVelocityComponent);
     if (magHorizontalVelocity < 1e-9) {
-        // console.warn(
-        //     `[SatCore/Geometry] Beacon's horizontal velocity component is near zero (mag: ${magHorizontalVelocity}). ` +
-        //     `Cannot define horizon-aligned antenna axes based on velocity. ` +
-        //     `Falling back to an arbitrary horizontal direction.`
-        // ); // Reduced console noise for this common case when velocity is purely radial initially
-        // Fallback: If velocity projection is zero (e.g. satellite moving perfectly radially or is stationary relative to ECI origin for a moment),
-        // pick an arbitrary horizontal direction.
-        // Try crossing zenith with global X-axis. If zenith is parallel to X, try global Y-axis.
         let arbitraryHorizontalDir: CartesianVector;
         const globalX: CartesianVector = { x: 1, y: 0, z: 0 };
         const globalY: CartesianVector = { x: 0, y: 1, z: 0 };
 
-        // Check if zenith is not largely aligned with X (dot product far from 1 or -1)
         if (Math.abs(dotProduct(zenithVector, globalX)) < 0.99) { 
             arbitraryHorizontalDir = normalize(crossProduct(zenithVector, globalX));
-        } else { // Zenith is likely aligned with X (or -X), so cross with Y
+        } else { 
             arbitraryHorizontalDir = normalize(crossProduct(zenithVector, globalY));
         }
         
         if (magnitude(arbitraryHorizontalDir) < 1e-9) {
-             console.error("[SatCore/Geometry] Could not determine a fallback horizontal direction for Beacon antennas.");
+             console.error(`[SatCore/Geometry] Could not determine a fallback horizontal direction for ${entityIdPrefix || 'entity'} antennas.`);
              return [];
         }
         horizontalVelocityComponent = arbitraryHorizontalDir;
     }
 
     const antennaAxis1 = normalize(horizontalVelocityComponent);
-    const antennaAxis2 = scale(antennaAxis1, -1); // Opposite direction
+    const antennaAxis2 = scale(antennaAxis1, -1); 
 
     const cone1: GeometricCone = {
-        tip: beaconEciPos,
+        tip: satelliteEciPos,
         axis: antennaAxis1,
-        halfAngle: beaconHalfAngleRadians,
-        satelliteId: beaconId ? `${beaconId}-Ant1` : 'Beacon-Ant1',
+        halfAngle: halfAngleRadians,
+        satelliteId: entityIdPrefix ? `${entityIdPrefix}-Ant1` : 'UnknownEntity-Ant1',
     };
 
     const cone2: GeometricCone = {
-        tip: beaconEciPos,
+        tip: satelliteEciPos,
         axis: antennaAxis2,
-        halfAngle: beaconHalfAngleRadians,
-        satelliteId: beaconId ? `${beaconId}-Ant2` : 'Beacon-Ant2',
+        halfAngle: halfAngleRadians,
+        satelliteId: entityIdPrefix ? `${entityIdPrefix}-Ant2` : 'UnknownEntity-Ant2',
     };
 
     return [cone1, cone2];
 };
+
+export interface Point {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * Checks if the line of sight between two points is clear of Earth obstruction.
+ * @param point1 Position of the first object (e.g., Beacon) in ECEF coordinates (km).
+ * @param point2 Position of the second object (e.g., Iridium satellite) in ECEF coordinates (km).
+ * @param earthCenter Position of Earth's center (typically [0, 0, 0]) in ECEF coordinates (km).
+ * @param earthRadius Radius of the Earth (km).
+ * @returns True if line of sight is clear, false otherwise.
+ */
+export function isLineOfSightClear(
+  point1: Point,
+  point2: Point,
+  earthCenter: Point = { x: 0, y: 0, z: 0 },
+  earthRadius: number = RADIUS_EARTH_KM
+): boolean {
+  const d = {
+    x: point2.x - point1.x,
+    y: point2.y - point1.y,
+    z: point2.z - point1.z,
+  };
+  const f = {
+    x: point1.x - earthCenter.x,
+    y: point1.y - earthCenter.y,
+    z: point1.z - earthCenter.z,
+  };
+
+  const a = d.x * d.x + d.y * d.y + d.z * d.z;
+  const b = 2 * (f.x * d.x + f.y * d.y + f.z * d.z);
+  const c = f.x * f.x + f.y * f.y + f.z * f.z - earthRadius * earthRadius;
+
+  let discriminant = b * b - 4 * a * c;
+
+  if (discriminant < 0) {
+    // No intersection or tangent, so line of sight is clear.
+    return true;
+  } else {
+    // Line intersects sphere. Check if intersection points are between point1 and point2.
+    discriminant = Math.sqrt(discriminant);
+    const t1 = (-b - discriminant) / (2 * a);
+    const t2 = (-b + discriminant) / (2 * a);
+
+    // If either t1 or t2 is between 0 and 1 (inclusive), an intersection point lies on the segment.
+    // This means the line of sight is blocked.
+    if ((t1 >= 0 && t1 <= 1) || (t2 >= 0 && t2 <= 1)) {
+      const p1DistSq = f.x * f.x + f.y * f.y + f.z * f.z;
+      const p2Vec = {x: point2.x - earthCenter.x, y: point2.y - earthCenter.y, z: point2.z - earthCenter.z};
+      const p2DistSq = p2Vec.x * p2Vec.x + p2Vec.y * p2Vec.y + p2Vec.z * p2Vec.z;
+      const rSq = earthRadius * earthRadius;
+
+      // If one point is inside and the other is outside, the segment must pass through the sphere boundary.
+      if ((p1DistSq < rSq && p2DistSq > rSq) || (p1DistSq > rSq && p2DistSq < rSq)) {
+         return false;
+      }
+      
+      // If both points are outside the sphere, but the line segment intersects it, then it's blocked.
+      // This condition specifically targets occultation where the segment passes through the sphere.
+      if (p1DistSq > rSq && p2DistSq > rSq) {
+        return false;
+      }
+
+      // If both points are inside the sphere (or one/both on the surface), 
+      // the line of sight is considered clear (not occulted by Earth's mass between them).
+      if (p1DistSq <= rSq && p2DistSq <= rSq) {
+        return true; 
+      }
+
+      // Fallback for any other intersecting cases not explicitly cleared above.
+      // This ensures that if an intersection point (t1 or t2) is on the segment, 
+      // and it's not cleared by the p1/p2 inside/outside checks, it's considered blocked.
+      return false; 
+    }
+    // Intersection points are outside the segment [point1, point2].
+    return true;
+  }
+}

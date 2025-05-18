@@ -8,7 +8,7 @@ import {
     geodeticToPosition // Added for explicit conversion if needed elsewhere, though propagateSatellite handles it
 } from './utils/orbitCalculation';
 import { fetchIridiumTLEs } from './services/tleService';
-import { GeometricCone, createIridiumCone, isPointInCone, createBeaconAntennaCones } from './utils/geometry';
+import { GeometricCone, createIridiumCone, isPointInCone, createHorizonAlignedAntennaCones, isLineOfSightClear, Point as GeometryPoint } from './utils/geometry';
 import * as satellite from 'satellite.js'; // For SatRec type, and other satellite.js specific types/functions if needed
 
 // Constants for FOV and simulation timing are now part of SimulationConfig
@@ -77,11 +77,15 @@ export const runSimulation = async (
 
     // 2. Simulation Loop Setup & Variables
     // ------------------------------------
-    const iridiumFovRadians = config.iridiumFovDeg * (Math.PI / 180.0);
-    const iridiumHalfAngleRad = iridiumFovRadians / 2.0;
+    const iridiumNadirFovRadians = config.iridiumFovDeg * (Math.PI / 180.0);      // FOV for Iridium's NADIR pointing cone
+    const iridiumNadirHalfAngleRad = iridiumNadirFovRadians / 2.0;
     
-    const beaconFovRadians = config.beaconFovDeg * (Math.PI / 180.0); // Added for Beacon
-    const beaconHalfAngleRad = beaconFovRadians / 2.0; // Added for Beacon
+    const beaconHorizonFovRadians = config.beaconFovDeg * (Math.PI / 180.0);    // FOV for Beacon's HORIZON pointing antennas
+    const beaconHorizonHalfAngleRad = beaconHorizonFovRadians / 2.0;
+
+    // For bi-directional mode, Iridium also uses its configured FOV for horizon scanning antennas
+    const iridiumHorizonScanningFovRadians = config.iridiumFovDeg * (Math.PI / 180.0);
+    const iridiumHorizonScanningHalfAngleRad = iridiumHorizonScanningFovRadians / 2.0;
 
     let totalHandshakes = 0;
     const handshakeLog: Handshake[] = [];
@@ -140,6 +144,8 @@ export const runSimulation = async (
         let beaconIsInCommunicationThisStep = false;
 
         for (const iridiumSat of iridiumSatRecs) {
+            let canCommunicate = false; // Initialize for each Iridium satellite check
+
             const iridiumPropagation = propagateSatellite(iridiumSat.rec, currentTime);
             if (!iridiumPropagation || !iridiumPropagation.positionEci || !iridiumPropagation.velocityEci || !iridiumPropagation.positionGeodetic) {
                 console.warn(`Iridium ${iridiumSat.id} propagation failed at ${currentTime.toISOString()}`);
@@ -161,58 +167,55 @@ export const runSimulation = async (
                 console.log(`  Iridium ${iridiumSat.id.substring(0,12)} ECI: x=${iridiumCurrentPosEci.x.toFixed(0)}, y=${iridiumCurrentPosEci.y.toFixed(0)}, z=${iridiumCurrentPosEci.z.toFixed(0)} (km)`);
             }
 
-            // One-way check: Beacon in Iridium's cone
-            const iridiumCone = createIridiumCone(iridiumCurrentPosEci, iridiumHalfAngleRad, iridiumSat.id);
-            let canCommunicate = isPointInCone(beaconCurrentPosEci, iridiumCone);
-
-            // --- BEGIN DEBUG LOGGING FOR ONE-WAY CHECK ---
-            if (config.handshakeMode === 'bi-directional') { // Only log this verbosely if bi-directional is on, to reduce noise otherwise
-                console.log(`[SatCoreDebug] One-Way Check for Iridium: ${iridiumSat.id} at ${currentTime.toISOString()}`);
-                console.log(`  Beacon Pos ECI: {x: ${beaconCurrentPosEci.x.toFixed(2)}, y: ${beaconCurrentPosEci.y.toFixed(2)}, z: ${beaconCurrentPosEci.z.toFixed(2)}}`);
-                console.log(`  Iridium Cone for ${iridiumSat.id}:`);
-                console.log(`    Tip: {x: ${iridiumCone.tip.x.toFixed(2)}, y: ${iridiumCone.tip.y.toFixed(2)}, z: ${iridiumCone.tip.z.toFixed(2)}}`);
-                console.log(`    Axis: {x: ${iridiumCone.axis.x.toFixed(4)}, y: ${iridiumCone.axis.y.toFixed(4)}, z: ${iridiumCone.axis.z.toFixed(4)}}`);
-                console.log(`    HalfAngle (rad): ${iridiumCone.halfAngle.toFixed(4)}`);
-                console.log(`  Result of isPointInCone(Beacon, Iridium ${iridiumSat.id}'s cone): ${canCommunicate}`);
-            }
-            // --- END DEBUG LOGGING FOR ONE-WAY CHECK ---
-
-            // Bi-directional check (if enabled)
-            // TODO: (Long Term) Bi-directional handshake logic is a future enhancement.
-            // The current implementation uses simplified Beacon cone geometry (zenith-pointing) for initial testing.
-            // Full validation and potentially more complex Beacon antenna modeling are pending.
-            if (canCommunicate && config.handshakeMode === 'bi-directional') {
-                const beaconAntennaCones = createBeaconAntennaCones(beaconCurrentPosEci, beaconCurrentVelEci, beaconHalfAngleRad, "Beacon");
-                
-                // --- BEGIN DEBUG LOGGING ---
-                if (beaconAntennaCones.length > 0) {
-                    console.log(`[SatCoreDebug] Bi-Directional Check for Iridium: ${iridiumSat.id} at ${currentTime.toISOString()}`);
-                    console.log(`  Beacon Pos ECI: {x: ${beaconCurrentPosEci.x.toFixed(2)}, y: ${beaconCurrentPosEci.y.toFixed(2)}, z: ${beaconCurrentPosEci.z.toFixed(2)}}`);
-                    console.log(`  Beacon Vel ECI: {x: ${beaconCurrentVelEci.x.toFixed(2)}, y: ${beaconCurrentVelEci.y.toFixed(2)}, z: ${beaconCurrentVelEci.z.toFixed(2)}}`);
-                    console.log(`  Beacon Half Angle (rad): ${beaconHalfAngleRad.toFixed(4)}`);
-                    console.log(`  Iridium Pos ECI: {x: ${iridiumCurrentPosEci.x.toFixed(2)}, y: ${iridiumCurrentPosEci.y.toFixed(2)}, z: ${iridiumCurrentPosEci.z.toFixed(2)}}`);
+            // Revised Handshake Logic
+            if (config.handshakeMode === 'one-way') {
+                const iridiumNadirCone = createIridiumCone(iridiumCurrentPosEci, iridiumNadirHalfAngleRad, iridiumSat.id);
+                canCommunicate = isPointInCone(beaconCurrentPosEci, iridiumNadirCone);
+                // Debug log for one-way
+                if (canCommunicate) {
+                    console.log(`[SatCoreDebug] One-Way: Beacon IN Iridium ${iridiumSat.id} NADIR cone at ${currentTime.toISOString()}`);
+                } else {
+                    // console.log(`[SatCoreDebug] One-Way: Beacon NOT IN Iridium ${iridiumSat.id} NADIR cone at ${currentTime.toISOString()}`);
                 }
-                // --- END DEBUG LOGGING ---
 
-                let isInBeaconCone = false;
-                for (const beaconCone of beaconAntennaCones) {
-                    // --- BEGIN DEBUG LOGGING ---
-                    console.log(`  Checking Beacon Cone: ${beaconCone.satelliteId}`);
-                    console.log(`    Cone Axis: {x: ${beaconCone.axis.x.toFixed(4)}, y: ${beaconCone.axis.y.toFixed(4)}, z: ${beaconCone.axis.z.toFixed(4)}}`);
-                    // --- END DEBUG LOGGING ---
-                    if (isPointInCone(iridiumCurrentPosEci, beaconCone)) {
-                        isInBeaconCone = true;
-                        // --- BEGIN DEBUG LOGGING ---
-                        console.log(`    SUCCESS: Iridium ${iridiumSat.id} IS IN Beacon cone ${beaconCone.satelliteId}`);
-                        // --- END DEBUG LOGGING ---
-                        break; 
-                    } else {
-                        // --- BEGIN DEBUG LOGGING ---
-                        console.log(`    FAILURE: Iridium ${iridiumSat.id} IS NOT IN Beacon cone ${beaconCone.satelliteId}`);
-                        // --- END DEBUG LOGGING ---
+            } else { // bi-directional
+                const iridiumHorizonCones = createHorizonAlignedAntennaCones(iridiumCurrentPosEci, iridiumCurrentVelEci, iridiumHorizonScanningHalfAngleRad, `${iridiumSat.id}-HScan`);
+                const beaconHorizonCones = createHorizonAlignedAntennaCones(beaconCurrentPosEci, beaconCurrentVelEci, beaconHorizonHalfAngleRad, "Beacon-HScan");
+
+                let beaconInIridiumHorizonCone = false;
+                for (const iCone of iridiumHorizonCones) {
+                    if (isPointInCone(beaconCurrentPosEci, iCone)) {
+                        beaconInIridiumHorizonCone = true;
+                        break;
                     }
                 }
-                canCommunicate = isInBeaconCone;
+
+                let iridiumInBeaconHorizonCone = false;
+                if (beaconInIridiumHorizonCone) { // Only check this if the first condition is met (optimization)
+                    for (const bCone of beaconHorizonCones) {
+                        if (isPointInCone(iridiumCurrentPosEci, bCone)) {
+                            iridiumInBeaconHorizonCone = true;
+                            break;
+                        }
+                    }
+                }
+                canCommunicate = beaconInIridiumHorizonCone && iridiumInBeaconHorizonCone;
+                // Debug log for bi-directional
+                if (canCommunicate) {
+                    console.log(`[SatCoreDebug] Bi-Directional: Mutual HORIZON cone intersection between Beacon and ${iridiumSat.id} at ${currentTime.toISOString()}`);
+                } else {
+                    // if (!beaconInIridiumHorizonCone) console.log(`[SatCoreDebug] Bi-Directional: Beacon NOT IN Iridium ${iridiumSat.id} HORIZON cone.`);
+                    // if (beaconInIridiumHorizonCone && !iridiumInBeaconHorizonCone) console.log(`[SatCoreDebug] Bi-Directional: Iridium ${iridiumSat.id} NOT IN Beacon HORIZON cone.`);
+                }
+            }
+
+            // Line of Sight Check (Earth Occultation) - Applied to both modes if canCommunicate is true so far
+            if (canCommunicate) {
+                const initialCanCommunicate = canCommunicate; // Store pre-LoS state for logging
+                canCommunicate = isLineOfSightClear(beaconCurrentPosEci as GeometryPoint, iridiumCurrentPosEci as GeometryPoint);
+                if (initialCanCommunicate && !canCommunicate) { 
+                     console.log(`[SatCoreDebug] Link between Beacon and ${iridiumSat.id} blocked by Earth occultation at ${currentTime.toISOString()} (Mode: ${config.handshakeMode})`);
+                }
             }
             
             if (canCommunicate) {
