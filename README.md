@@ -70,6 +70,17 @@ The simulation process in SatMap V3.0 involves:
 **Detailed Satellite Information (Side Panel):**
 ![Side Menu with Satellite Details](https://raw.githubusercontent.com/AryanRai/SatMap/main/satmap/public/SideMenu.png)
 
+**3D:**
+![Side Menu with Satellite Details](<img width="977" height="784" alt="Screenshot 2025-05-21 043959" src="https://github.com/user-attachments/assets/4d056b9f-4ed1-4579-b88a-aac1ca0bd20a" />
+)
+
+****
+![Side Menu with Satellite Details](<img width="977" height="784" alt="Screenshot 2025-05-21 043959" src="https://github.com/user-attachments/assets/4d056b9f-4ed1-4579-b88a-aac1ca0bd20a" />
+)
+
+**Full Page:**
+<img width="1919" height="883" alt="Screenshot 2025-05-21 202521" src="https://github.com/user-attachments/assets/5b6bd94a-f729-40af-8901-96dae98200f9" />
+
 ---
 
 ## 🚀 Getting Started
