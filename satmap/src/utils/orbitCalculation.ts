@@ -169,18 +169,18 @@ const getSunRaDec = (date: Date): { ra: number; dec: number } => {
   // Mean longitude of the Sun, corrected for aberration
   let L = (280.460 + 0.9856474 * n) % 360;
   if (L < 0) L += 360;
-  L = satellite.radiansLong(L); // Convert to radians
+  L = (L * Math.PI) / 180; // Convert to radians
 
   // Mean anomaly of the Sun
   let g = (357.528 + 0.9856003 * n) % 360;
   if (g < 0) g += 360;
-  g = satellite.radiansLong(g);
+  g = (g * Math.PI) / 180; // Convert to radians
 
   // Ecliptic longitude of the Sun
-  const lambda = L + satellite.radiansLong(1.915) * Math.sin(g) + satellite.radiansLong(0.020) * Math.sin(2 * g);
+  const lambda = L + ((1.915 * Math.PI) / 180) * Math.sin(g) + ((0.020 * Math.PI) / 180) * Math.sin(2 * g);
 
   // Obliquity of the ecliptic (approximate)
-  const epsilon = satellite.radiansLong(23.439 - 0.0000004 * n);
+  const epsilon = ((23.439 - 0.0000004 * n) * Math.PI) / 180;
 
   // Right Ascension (RA)
   const alpha = Math.atan2(Math.cos(epsilon) * Math.sin(lambda), Math.cos(lambda));
