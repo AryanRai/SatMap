@@ -51,6 +51,10 @@ The simulation process in SatMap V3.0 involves:
 ---
 ## 🖼️ Sneak Peek (Illustrative of V1-V3 Features)
 
+**Full Page:**
+<img width="1919" height="883" alt="Screenshot 2025-05-21 202521" src="https://github.com/user-attachments/assets/5b6bd94a-f729-40af-8901-96dae98200f9" />
+
+
 (Image links remain as they are, assuming they showcase relevant UI aspects, potentially add a 3D view screenshot if available)
 **Main Application View & Input Form:**
 ![Main Page Layout](https://raw.githubusercontent.com/AryanRai/SatMap/main/satmap/public/MainPage.png)
@@ -78,8 +82,6 @@ The simulation process in SatMap V3.0 involves:
 ![Side Menu with Satellite Details](<img width="977" height="784" alt="Screenshot 2025-05-21 043959" src="https://github.com/user-attachments/assets/4d056b9f-4ed1-4579-b88a-aac1ca0bd20a" />
 )
 
-**Full Page:**
-<img width="1919" height="883" alt="Screenshot 2025-05-21 202521" src="https://github.com/user-attachments/assets/5b6bd94a-f729-40af-8901-96dae98200f9" />
 
 ---
 
